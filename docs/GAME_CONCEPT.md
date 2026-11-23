@@ -1,6 +1,6 @@
 # Gassenpfoten – The Cats of Tübingen: Game Concept
 
-> Status: **Draft v0.4** (2026-11-23). Open decisions are marked **[OPEN]** and collected in §12.
+> Status: **Draft v0.5** (2026-11-23). Open decisions are marked **[OPEN]** and collected in §12.
 
 ---
 
@@ -221,8 +221,25 @@ The town is built as **stylised districts** connected by paths. It is recognisab
 | Weather | simulated (Markov-style state machine, weighted by season) |
 | Time | in-game clock, 1 real minute = 1 game hour |
 | i18n | language files `de.json` / `en.json` from the start |
-| Hosting | **[OPEN]** GitHub Pages (needs GitHub Pro for private repos), Cloudflare Pages, Netlify, or local only |
+| Hosting | **Decided: GitHub Pages** (repo goes public at release, see §10.1) |
 | Offline | PWA later, so it can be installed on a phone |
+
+### 10.1 Deployment target: GitHub Pages
+The game has to run as a **purely static site** on `https://nighthawk32.github.io/gassenpfoten/`. These rules apply from the first line of code:
+
+| Rule | Why / how |
+|---|---|
+| **Static only, no backend** | Pages serves files only. No server, no database, no API keys. Saves, weather and time all stay on the client. |
+| **Subpath-safe** | The game lives under `/gassenpfoten/`, not `/`. Set Vite's `base: '/gassenpfoten/'`, and load every asset through the base URL (`import.meta.env.BASE_URL`), never through absolute `/assets/...` paths. |
+| **No client-side routes** | There are no history-API URLs like `/journal`, which would return 404 on Pages. Everything is one page; screens are game scenes. If routes are ever needed, use hash routing (`#/journal`). |
+| **Case-sensitive file names** | Pages is case-sensitive, Windows is not. Convention: all asset files are `lower-kebab-case`. |
+| **Unique save keys** | `localStorage` is shared by every project under `nighthawk32.github.io`. Prefix all keys, e.g. `gassenpfoten:save:v1`, and version the save format. |
+| **Build via GitHub Actions** | A workflow runs `npm ci && npm run build` and deploys `dist/` with `actions/deploy-pages` on push to `main`. There is no `gh-pages` branch, and no build output is committed. |
+| **Reasonable size** | Pages limits: site ≤ 1 GB, soft bandwidth limit 100 GB/month. Use pixel-art sprite atlases and compressed audio (OGG/MP3, see §8). |
+| **Public-repo-ready** | Before going public: no secrets in the history, a `LICENSE` file, and **only assets we are allowed to publish** (own work, or CC0 / CC-BY with credits in `CREDITS.md`). Track every asset's licence from day one. |
+| **Works offline later** | A PWA service worker (M4) must use the `/gassenpfoten/` scope. |
+
+**Local check:** `npm run build && npm run preview` serves the build under the same `/gassenpfoten/` base, so path problems show up before deployment.
 
 **Spawn logic (sketch):**
 ```
@@ -242,6 +259,7 @@ for each cat in district:
 | Milestone | Content |
 |---|---|
 | **M0: Concept** | this document, repo setup |
+| **M0.5: Pipeline** | Vite + TS + Phaser scaffold, GitHub Actions build, `base` path set; deployable placeholder page |
 | **M1: Prototype** | one district (Marktplatz), movement, 3 cats, feeding and petting, day/night cycle |
 | **M2: Vertical slice** | Altstadt + Neckarfront, weather system, 8 cats, 2 NPCs, Rote Bande basics, journal, saving |
 | **M3: Alpha** | all core districts, 20+ cats, NPC stories, sound |
@@ -257,5 +275,5 @@ for each cat in district:
 7. **Name of the orange boss.**
 ~~8. Player character~~ → customisable
 9. **Home base:** a small flat or WG room where befriended cats can visit?
-10. **Hosting and sharing:** just for you, or for friends via a link?
+~~10. Hosting~~ → GitHub Pages (repo goes public at release)
 ~~11. Name~~ → **Gassenpfoten – The Cats of Tübingen** (DE subtitle: *Die Katzen von Tübingen*)
