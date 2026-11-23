@@ -259,7 +259,7 @@ for each cat in district:
 | Milestone | Content |
 |---|---|
 | **M0: Concept** | this document, repo setup |
-| **M0.5: Pipeline** | Vite + TS + Phaser scaffold, GitHub Actions build, `base` path set; deployable placeholder page |
+| **M0.5: Pipeline** ✅ scaffolded | Vite + TS + Phaser scaffold, GitHub Actions build, `base` path set; deployable placeholder page |
 | **M1: Prototype** | one district (Marktplatz), movement, 3 cats, feeding and petting, day/night cycle |
 | **M2: Vertical slice** | Altstadt + Neckarfront, weather system, 8 cats, 2 NPCs, Rote Bande basics, journal, saving |
 | **M3: Alpha** | all core districts, 20+ cats, NPC stories, sound |

@@ -1,0 +1,13 @@
+{
+  "title": "Gassenpfoten",
+  "subtitle": "Die Katzen von Tübingen",
+  "prototype": "Prototyp M0.5 – Pipeline-Test",
+  "hint": "[L] Sprache: Deutsch   ·   [Leertaste] Zeit vorspulen",
+  "day": "Tag",
+  "phase.dawn": "Morgendämmerung",
+  "phase.morning": "Vormittag",
+  "phase.midday": "Mittag",
+  "phase.afternoon": "Nachmittag",
+  "phase.evening": "Abend",
+  "phase.night": "Nacht"
+}

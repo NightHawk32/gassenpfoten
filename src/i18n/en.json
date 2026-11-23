@@ -1,0 +1,13 @@
+{
+  "title": "Gassenpfoten",
+  "subtitle": "The Cats of Tübingen",
+  "prototype": "Prototype M0.5 – pipeline test",
+  "hint": "[L] Language: English   ·   [Space] fast-forward time",
+  "day": "Day",
+  "phase.dawn": "Dawn",
+  "phase.morning": "Morning",
+  "phase.midday": "Midday",
+  "phase.afternoon": "Afternoon",
+  "phase.evening": "Evening",
+  "phase.night": "Night"
+}
