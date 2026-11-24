@@ -134,9 +134,10 @@ export class Cat {
     this.path = [];
   }
 
-  goToBowl(bowl: Point): void {
+  goToBowl(bowl: Point, speed = WALK_SPEED * 1.3): void {
     this.state = 'toBowl';
-    this.walkTo(bowl, WALK_SPEED * 1.3, () => {
+    this.emoteTimer = 0;
+    this.walkTo(bowl, speed, () => {
       this.state = 'eating';
       this.eatTimer = EAT_TIME;
       this.home = { x: this.sprite.x, y: this.sprite.y };

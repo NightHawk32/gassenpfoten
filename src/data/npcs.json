@@ -1,0 +1,52 @@
+[
+  {
+    "id": "haeberle",
+    "name": "Frau Häberle",
+    "look": "haeberle",
+    "district": "marktplatz",
+    "spot": "haeberle",
+    "phases": [
+      "dawn",
+      "morning",
+      "midday",
+      "afternoon"
+    ],
+    "greetings": 3,
+    "gift": {
+      "item": "chicken",
+      "amount": 1
+    },
+    "hints": "any",
+    "story": [
+      {
+        "unlessFlag": "knows-bande",
+        "line": "bande"
+      }
+    ]
+  },
+  {
+    "id": "jonas",
+    "name": "Jonas",
+    "look": "jonas",
+    "district": "neckarfront",
+    "spot": "jonas",
+    "phases": [
+      "afternoon",
+      "evening",
+      "night"
+    ],
+    "greetings": 3,
+    "gift": {
+      "item": "catnip",
+      "amount": 1
+    },
+    "hints": "night",
+    "forecast": true,
+    "story": [
+      {
+        "unlessFlag": "schatten-friend",
+        "line": "schatten"
+      }
+    ]
+  }
+]

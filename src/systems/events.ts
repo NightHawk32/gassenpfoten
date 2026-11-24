@@ -27,12 +27,19 @@ export const EV = {
   GAME: 'game',
   /** () quest list or progress changed */
   QUESTS_CHANGED: 'quests-changed',
+  /** (lines: DialogueLine[]) show a conversation */
+  DIALOGUE: 'dialogue',
+  /** () next line (or close on the last one) */
+  DIALOGUE_NEXT: 'dialogue-next',
+  /** () the conversation was closed */
+  DIALOGUE_DONE: 'dialogue-done',
 } as const;
 
+/** What the player can do with the nearest cat or person. */
 export interface InteractPrompt {
-  catId: string;
-  catName: string;
-  action: 'feed' | 'pet' | 'content';
+  targetId: string;
+  name: string;
+  action: 'feed' | 'pet' | 'content' | 'talk' | 'bande' | 'distract';
 }
 
 export type PetResult = 'happy' | 'left' | 'cancel';

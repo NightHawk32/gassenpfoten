@@ -7,7 +7,7 @@ A calm, cozy browser game set in Tübingen: find, feed and pet the neighbourhood
 - 📄 Game concept: [docs/GAME_CONCEPT.md](docs/GAME_CONCEPT.md)
 - 🎨 Asset licences: [CREDITS.md](CREDITS.md)
 - 🧩 Adding items, areas, cats and quests: [docs/EXTENDING.md](docs/EXTENDING.md)
-- Status: **M2 – vertical slice, in progress**: Marktplatz and Neckarfront (unlocked after the first quest), 5 cats, feeding, petting, day/night, cat journal, quests
+- Status: **M2 – vertical slice**: Marktplatz and Neckarfront, 8 cats with moods and body language, weather (sun, clouds, rain, fog), Frau Häberle and Jonas, the Rote Bande, day/night, cat journal, quests, saving
 
 ## Development
 
@@ -20,7 +20,7 @@ npm run build        # asset-name check + typecheck + production build → dist/
 npm run preview      # serve dist/ exactly as GitHub Pages will (under /gassenpfoten/)
 ```
 
-Controls: **WASD/arrows** or click/tap to walk · **E** (or tap a cat) to feed and pet · **Shift** or 🐾 to sneak · **J** cat journal · **L** language · hold **T** or ⏩ to fast-forward time.
+Controls: **WASD/arrows** or click/tap to walk · **E** (or tap a cat or person) to feed, pet, talk or use yarn on the Rote Bande · **Shift** or 🐾 to sneak · **J** cat journal · **L** language · hold **T** or ⏩ to fast-forward time.
 
 The canvas always renders at the screen's real pixel resolution (capped at 2× device pixel ratio) and adapts to landscape and portrait, so the game runs on phones. Lay out scenes from `this.scale.width/height` with `uiScale()` / `pixelScale()` from `src/systems/viewport.ts` and re-layout on the scale `resize` event. In dev builds, `window.__dev` gives console access to the game, the event bus and the game state. To test on a phone in the same Wi-Fi: `npm run dev -- --host`.
 
@@ -32,11 +32,11 @@ src/
   main.ts               Phaser game setup
   config.ts             constants, assetUrl() helper, storage prefix
   scenes/               Boot, Title, Game (world), Hud (UI), Pet (petting close-up)
-  entities/             Player, Cat
-  world/                district builder, grid + pathfinding, districts/ registry
-  data/                 cats.json, items.json, quests.json (content)
-  systems/              clock, save state, quests, event bus, viewport, storage
-  art/                  procedural placeholder sprites and tiles
+  entities/             Player, Cat, Npc
+  world/                district builder, grid + pathfinding, districts/ registry, weather effects
+  data/                 cats.json, items.json, quests.json, npcs.json (content)
+  systems/              clock, weather, save state, quests, dialogue, event bus, viewport, storage
+  art/                  procedural sprites (cats in catArt.ts) and tiles
   ui/                   shared buttons
   i18n/                 de.json / en.json + t() helper
 public/assets/          game assets (lower-kebab-case, licence in CREDITS.md)

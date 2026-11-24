@@ -3,6 +3,7 @@ import { catTextureKey } from '../art/sprites';
 import { CATS } from '../data/cats';
 import { ITEMS, itemsOfCategory } from '../data/items';
 import { onLanguageChange, t, toggleLanguage, type TextKey } from '../i18n/i18n';
+import type { DialogueLine } from '../systems/dialogue';
 import { bus, EV, type InteractPrompt } from '../systems/events';
 import { gameState, LEVEL } from '../systems/gameState';
 import { QUESTS, questTitle, quests, stepText } from '../systems/quests';
@@ -34,6 +35,14 @@ export class HudScene extends Phaser.Scene {
   private toasts: { obj: Phaser.GameObjects.Text; age: number }[] = [];
   private menu: { title: Phaser.GameObjects.Text; items: string[]; buttons: Button[]; cancel: Button } | null = null;
   private journal: Phaser.GameObjects.Container | null = null;
+  private dialogue: {
+    lines: DialogueLine[];
+    index: number;
+    box: Phaser.GameObjects.Rectangle;
+    name: Phaser.GameObjects.Text;
+    body: Phaser.GameObjects.Text;
+    more: Phaser.GameObjects.Text;
+  } | null = null;
   private journalScroll = { y: 0, max: 0, dragY: null as number | null };
 
   constructor() {
@@ -45,6 +54,7 @@ export class HudScene extends Phaser.Scene {
     this.toasts = [];
     this.menu = null;
     this.journal = null;
+    this.dialogue = null;
 
     const textStyle = { fontFamily: 'Georgia, serif', color: '#fff6d5', backgroundColor: '#1d2433aa' };
     this.clockText = this.add.text(0, 0, '', { ...textStyle, fontFamily: 'monospace' });
@@ -74,6 +84,7 @@ export class HudScene extends Phaser.Scene {
     kb.on('keydown-ESC', () => {
       if (this.journal) this.toggleJournal();
       else if (this.menu) this.chooseTreat(null);
+      else if (this.dialogue) this.closeDialogue();
     });
     kb.on('keydown', (e: KeyboardEvent) => {
       // 1–4 pick a treat in the menu.
@@ -86,6 +97,8 @@ export class HudScene extends Phaser.Scene {
       [EV.PROMPT, (p: InteractPrompt | null) => this.setPrompt(p)],
       [EV.TREAT_MENU, (catId: string) => this.openMenu(catId)],
       [EV.QUESTS_CHANGED, () => this.updateObjective()],
+      [EV.DIALOGUE, (lines: DialogueLine[]) => this.openDialogue(lines)],
+      [EV.DIALOGUE_NEXT, () => this.nextLine()],
     ];
     for (const [ev, fn] of handlers) bus.on(ev, fn);
     const offLang = onLanguageChange(() => this.refreshTexts());
@@ -157,6 +170,7 @@ export class HudScene extends Phaser.Scene {
 
     this.layoutToasts();
     if (this.menu) this.layoutMenu();
+    if (this.dialogue) this.layoutDialogue();
     if (this.journal) {
       this.closeJournal();
       this.openJournal();
@@ -194,19 +208,79 @@ export class HudScene extends Phaser.Scene {
     const p = this.prompt;
     if (!p) return '';
     const touch = isTouchDevice() ? '.touch' : '';
-    return t(`prompt.${p.action}${p.action === 'content' ? '' : touch}` as TextKey, { name: p.catName });
+    const plain = p.action === 'content' || p.action === 'bande';
+    return t(`prompt.${p.action}${plain ? '' : touch}` as TextKey, { name: p.name });
   }
 
   private setPrompt(p: InteractPrompt | null): void {
     this.prompt = p;
     if (!p && this.menu) this.chooseTreat(null);
     this.promptBtn.refresh();
-    this.promptBtn.obj.setVisible(!!p && !this.menu);
+    this.promptBtn.obj.setVisible(!!p && !this.menu && !this.dialogue);
   }
 
   private updateObjective(): void {
     const text = quests.currentObjective();
     this.objectiveText.setText(text ? ` 📜 ${text} ` : '').setVisible(!!text);
+  }
+
+  // ------------------------------------------------------------------ dialogue
+
+  private openDialogue(lines: DialogueLine[]): void {
+    this.closeDialogue(false);
+    if (!lines.length) return;
+    const style = { fontFamily: 'Georgia, serif', color: '#fff6d5' };
+    const box = this.add.rectangle(0, 0, 1, 1, 0x241c2c, 0.95).setOrigin(0.5, 1).setDepth(45).setInteractive();
+    box.on(Phaser.Input.Events.POINTER_DOWN, () => this.nextLine());
+    const name = this.add.text(0, 0, '', { ...style, color: '#f2d8a7' }).setDepth(46);
+    const body = this.add.text(0, 0, '', style).setDepth(46);
+    const more = this.add.text(0, 0, '▼', { ...style, color: '#f2d8a7' }).setOrigin(1, 1).setDepth(46);
+    this.tweens.add({ targets: more, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
+    this.dialogue = { lines, index: 0, box, name, body, more };
+    this.promptBtn.obj.setVisible(false);
+    this.layoutDialogue();
+  }
+
+  private layoutDialogue(): void {
+    const d = this.dialogue;
+    if (!d) return;
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const s = this.s;
+    const pad = Math.round(12 * s);
+    const boxW = Math.min(w * 0.94, 520 * s);
+    const line = d.lines[d.index];
+    d.name.setText(line.name).setFontSize(Math.round(13 * s));
+    d.body.setText(line.text).setFontSize(Math.round(13 * s)).setWordWrapWidth(boxW - pad * 2, true);
+    d.more.setText(d.index < d.lines.length - 1 ? '▼' : '✕').setFontSize(Math.round(12 * s));
+    const boxH = pad * 2 + d.name.height + Math.round(4 * s) + d.body.height + Math.round(6 * s);
+    const bottom = h - Math.round(8 * s) - this.sneakBtn.obj.height - Math.round(10 * s);
+    const left = w / 2 - boxW / 2;
+    d.box.setStrokeStyle(Math.max(1, s), 0xf2d8a7).setSize(boxW, boxH).setPosition(w / 2, bottom);
+    d.box.input?.hitArea.setTo(0, 0, boxW, boxH);
+    d.name.setPosition(left + pad, bottom - boxH + pad);
+    d.body.setPosition(left + pad, d.name.y + d.name.height + Math.round(4 * s));
+    d.more.setPosition(left + boxW - pad, bottom - Math.round(6 * s));
+  }
+
+  private nextLine(): void {
+    const d = this.dialogue;
+    if (!d) return;
+    if (d.index < d.lines.length - 1) {
+      d.index++;
+      this.layoutDialogue();
+    } else {
+      this.closeDialogue();
+    }
+  }
+
+  private closeDialogue(notify = true): void {
+    const d = this.dialogue;
+    if (!d) return;
+    [d.box, d.name, d.body, d.more].forEach((o) => o.destroy());
+    this.dialogue = null;
+    this.promptBtn.obj.setVisible(!!this.prompt && !this.menu);
+    if (notify) bus.emit(EV.DIALOGUE_DONE);
   }
 
   // ------------------------------------------------------------------ messages
@@ -347,7 +421,8 @@ export class HudScene extends Phaser.Scene {
       const startY = y;
       const indent = iconSize + Math.round(10 * s);
       const hearts = '♥'.repeat(p.level) + '♡'.repeat(LEVEL.BEST_FRIEND - p.level);
-      text(`${known ? cat.name : '???'}   ${hearts}  ${t(`level.${p.level}` as TextKey)}`, 14, '#f2d8a7', indent);
+      const status = cat.bande ? t('journal.bande') : `${hearts}  ${t(`level.${p.level}` as TextKey)}`;
+      text(`${known ? cat.name : '???'}   ${status}`, 14, cat.bande ? '#f0a060' : '#f2d8a7', indent);
       if (!known) {
         text(t('journal.unknown'), 11, '#c9c3d6', indent);
       } else {
@@ -364,7 +439,7 @@ export class HudScene extends Phaser.Scene {
           .filter((k) => cat.weather?.[k]?.length)
           .map((k) => t(`journal.weather.${k}`, { list: list(cat.weather![k]!, 'weather') }));
         if (habits.length) text(t('journal.weather', { text: habits.join(' · ') }), 11, '#c9c3d6', indent);
-        if (p.level >= LEVEL.FED) {
+        if (p.level >= LEVEL.FED && !cat.bande) {
           text(t('journal.likes', { likes: list(cat.likes, 'item'), dislikes: list(cat.dislikes, 'item') }), 11, '#c9c3d6', indent);
         }
         if (p.knownSpots.length) text(t('journal.spots', { zones: list(p.knownSpots, 'zone') }), 11, '#c9c3d6', indent);

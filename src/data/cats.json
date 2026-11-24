@@ -285,5 +285,64 @@
         "rain"
       ]
     }
+  },
+  {
+    "id": "baron",
+    "name": "Baron von Möhre",
+    "coat": "orange",
+    "district": "marktplatz",
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "fountain",
+      "rathaus-arcade",
+      "church-garden",
+      "north-alley"
+    ],
+    "likes": [],
+    "dislikes": [],
+    "shyness": 0,
+    "favourite": [],
+    "noGo": [],
+    "bande": true,
+    "size": 1.35,
+    "requiresFlag": "tutorial-done",
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "id": "ruebe",
+    "name": "Rübe",
+    "coat": "orange",
+    "district": "neckarfront",
+    "phases": [
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "neckarmauer",
+      "riverside-doorsteps",
+      "eberhardsbruecke"
+    ],
+    "likes": [],
+    "dislikes": [],
+    "shyness": 0,
+    "favourite": [],
+    "noGo": [],
+    "bande": true,
+    "requiresFlag": "knows-bande",
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    }
   }
 ]

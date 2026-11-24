@@ -6,7 +6,8 @@ import raw from './items.json';
  *
  * Categories:
  *  - treat: can be put in a bowl for a cat (`color` is the food colour in the bowl)
- *  - toy, key, story: reserved for later (decoy toys against the Rote Bande, quest items …)
+ *  - toy: decoys for the Rote Bande (a Bande cat plays with it instead of stealing)
+ *  - key, story: reserved for quest items
  */
 export type ItemCategory = 'treat' | 'toy' | 'key' | 'story';
 

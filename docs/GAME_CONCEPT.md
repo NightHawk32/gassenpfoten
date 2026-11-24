@@ -261,7 +261,7 @@ for each cat in district:
 | **M0: Concept** | this document, repo setup |
 | **M0.5: Pipeline** ✅ scaffolded | Vite + TS + Phaser scaffold, GitHub Actions build, `base` path set; deployable placeholder page |
 | **M1: Prototype** ✅ playable | one district (Marktplatz), movement, 3 cats, feeding and petting, day/night cycle; plus cat journal and a data-driven quest system |
-| **M2: Vertical slice** 🚧 in progress (district travel, Neckarfront, 5 cats) | Altstadt + Neckarfront, weather system, 8 cats, 2 NPCs, Rote Bande basics, journal, saving |
+| **M2: Vertical slice** ✅ playable | Altstadt + Neckarfront, weather system, 8 cats, 2 NPCs, Rote Bande basics, journal, saving |
 | **M3: Alpha** | all core districts, 20+ cats, NPC stories, sound |
 | **M4: 1.0** | 30–40 cats, seasons, polish, mobile, PWA |
 

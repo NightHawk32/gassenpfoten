@@ -1,46 +1,9 @@
 [
-  {
-    "id": "first-friend",
-    "steps": [
-      { "id": "find", "event": "cat-seen" },
-      { "id": "feed", "event": "cat-fed" },
-      { "id": "pet", "event": "cat-petted" }
-    ],
-    "rewards": [
-      { "type": "item", "item": "chicken", "amount": 2 },
-      { "type": "flag", "flag": "tutorial-done" }
-    ]
-  },
-  {
-    "id": "gourmet",
-    "requires": ["first-friend"],
-    "steps": [{ "id": "liked", "event": "cat-fed", "match": { "reaction": "liked" }, "count": 3 }],
-    "rewards": [{ "type": "item", "item": "tuna", "amount": 3 }]
-  },
-  {
-    "id": "night-owl",
-    "requires": ["first-friend"],
-    "steps": [
-      { "id": "find", "event": "cat-seen", "match": { "cat": "professor" } },
-      { "id": "befriend", "event": "cat-level", "match": { "cat": "professor", "level": 3 } }
-    ],
-    "rewards": [
-      { "type": "item", "item": "dry", "amount": 3 },
-      { "type": "flag", "flag": "professor-friend" }
-    ]
-  },
-  {
-    "id": "river-cats",
-    "requires": ["first-friend"],
-    "requiresFlag": "tutorial-done",
-    "steps": [
-      { "id": "go", "event": "area-entered", "match": { "area": "neckarfront" } },
-      { "id": "poet", "event": "cat-seen", "match": { "cat": "hoelderlin" } },
-      { "id": "boat", "event": "cat-fed", "match": { "cat": "kahn" } }
-    ],
-    "rewards": [
-      { "type": "item", "item": "tuna", "amount": 3 },
-      { "type": "flag", "flag": "river-friend" }
-    ]
-  }
+  {"id": "first-friend", "steps": [{"id": "find", "event": "cat-seen"}, {"id": "feed", "event": "cat-fed"}, {"id": "pet", "event": "cat-petted"}], "rewards": [{"type": "item", "item": "chicken", "amount": 2}, {"type": "flag", "flag": "tutorial-done"}]},
+  {"id": "meet-haeberle", "requires": ["first-friend"], "steps": [{"id": "talk", "event": "npc-talked", "match": {"npc": "haeberle"}}], "rewards": [{"type": "item", "item": "yarn", "amount": 2}, {"type": "flag", "flag": "knows-bande"}]},
+  {"id": "bande-trouble", "requires": ["meet-haeberle"], "steps": [{"id": "spot", "event": "cat-seen", "match": {"cat": "baron"}}, {"id": "distract", "event": "bande-distracted"}], "rewards": [{"type": "item", "item": "tuna", "amount": 2}, {"type": "flag", "flag": "bande-outwitted"}]},
+  {"id": "gourmet", "requires": ["first-friend"], "steps": [{"id": "liked", "event": "cat-fed", "match": {"reaction": "liked"}, "count": 3}], "rewards": [{"type": "item", "item": "tuna", "amount": 3}]},
+  {"id": "night-owl", "requires": ["first-friend"], "steps": [{"id": "find", "event": "cat-seen", "match": {"cat": "professor"}}, {"id": "befriend", "event": "cat-level", "match": {"cat": "professor", "level": 3}}], "rewards": [{"type": "item", "item": "dry", "amount": 3}, {"type": "flag", "flag": "professor-friend"}]},
+  {"id": "river-cats", "requires": ["first-friend"], "requiresFlag": "tutorial-done", "steps": [{"id": "go", "event": "area-entered", "match": {"area": "neckarfront"}}, {"id": "poet", "event": "cat-seen", "match": {"cat": "hoelderlin"}}, {"id": "boat", "event": "cat-fed", "match": {"cat": "kahn"}}], "rewards": [{"type": "item", "item": "tuna", "amount": 3}, {"type": "flag", "flag": "river-friend"}]},
+  {"id": "fog-cat", "requires": ["river-cats"], "steps": [{"id": "ask", "event": "npc-talked", "match": {"npc": "jonas"}}, {"id": "find", "event": "cat-seen", "match": {"cat": "schatten"}}, {"id": "feed", "event": "cat-fed", "match": {"cat": "schatten"}}], "rewards": [{"type": "item", "item": "catnip", "amount": 2}, {"type": "flag", "flag": "schatten-friend"}]}
 ]

@@ -3,7 +3,10 @@ import { TILE_SIZE } from '../config';
 import { CAT_FRAME } from '../art/sprites';
 import { catActive, CATS, catSpots, treatReaction } from '../data/cats';
 import { Cat } from '../entities/Cat';
+import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
+import { NPCS } from '../data/npcs';
+import { talk } from '../systems/dialogue';
 import { t, type TextKey } from '../i18n/i18n';
 import { daylight, type DayPhase } from '../systems/clock';
 import { bus, emitGame, EV, type GameEvent, type InteractPrompt, type PetResult } from '../systems/events';
@@ -37,7 +40,21 @@ interface Bowl {
   img: Phaser.GameObjects.Image;
   item: string;
   cat: Cat;
+  /** A Rote Bande cat on its way to steal it. */
+  thief?: Cat;
 }
+
+/** Something the player can interact with. */
+type Target = { kind: 'cat'; cat: Cat } | { kind: 'npc'; npc: Npc };
+
+/** Rote Bande (concept §4.7): how far (px) they smell a bowl, how fast they run to it. */
+const BANDE_SMELL = 12 * TILE_SIZE;
+const BANDE_SPEED = 52;
+/** Shy cats near a Bande cat get nervous. */
+const BANDE_SCARE = 2.5 * TILE_SIZE;
+/** Seconds a ball of yarn keeps a Bande cat busy. */
+const YARN_SECONDS = 45;
+const BANDE_PATROL: [number, number] = [8, 16];
 
 /**
  * The walkable world: one district with its cats, the player, the in-game
@@ -47,6 +64,12 @@ export class GameScene extends Phaser.Scene {
   private district!: District;
   private player!: Player;
   private cats: Cat[] = [];
+  private npcs: Npc[] = [];
+  private talking = false;
+  private approachNpc: Npc | null = null;
+  /** Rote Bande: patrol timers and yarn balls they are playing with. */
+  private patrol = new Map<Cat, number>();
+  private yarn = new Map<Cat, { img: Phaser.GameObjects.Image; time: number }>();
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private darkness!: Phaser.GameObjects.Rectangle;
   private lampGlows: Phaser.GameObjects.Image[] = [];
@@ -76,6 +99,11 @@ export class GameScene extends Phaser.Scene {
     const state = gameState();
     this.district = getDistrict(state.district);
     this.cats = [];
+    this.npcs = [];
+    this.talking = false;
+    this.approachNpc = null;
+    this.patrol = new Map();
+    this.yarn = new Map();
     this.lampGlows = [];
     this.windowLights = [];
     this.bowl = null;
@@ -102,6 +130,13 @@ export class GameScene extends Phaser.Scene {
     for (const cat of this.cats) {
       if (catActive(cat.def, this.phase, this.weather)) cat.appearAt(this.randomSpot(cat));
     }
+    this.npcs = NPCS.filter((n) => n.district === this.district.def.id).map((def) => {
+      const spot = this.district.def.spots[def.spot]?.[0];
+      if (!spot) throw new Error(`NPC "${def.id}": no spot "${def.spot}" in district "${this.district.def.id}"`);
+      const npc = new Npc(this, def, spot);
+      npc.setPresent(def.phases.includes(this.phase), true);
+      return npc;
+    });
     this.weatherFx = new WeatherFx(this, this.district.width * TILE_SIZE, this.district.height * TILE_SIZE, this.weather);
 
     this.setupCamera();
@@ -237,13 +272,23 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown-SPACE', () => this.interact());
 
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (this.talking) {
+        bus.emit(EV.DIALOGUE_NEXT);
+        return;
+      }
       const cat = over.map((o) => o.getData('cat') as Cat | undefined).find((c) => c && c.present);
       if (cat) {
         this.tapCat(cat);
         return;
       }
+      const npc = over.map((o) => o.getData('npc') as Npc | undefined).find((n) => n && n.here);
+      if (npc) {
+        this.tapNpc(npc);
+        return;
+      }
       this.pointerHeld = true;
       this.approachCat = null;
+      this.approachNpc = null;
       this.walkToPointer(pointer);
     });
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
@@ -262,6 +307,7 @@ export class GameScene extends Phaser.Scene {
       [EV.FAST, (on: boolean) => (this.fast = on)],
       [EV.PET_DONE, (result: PetResult, catId: string) => this.onPetDone(result, catId)],
       [EV.GAME, (e: GameEvent) => this.onGameEvent(e)],
+      [EV.DIALOGUE_DONE, () => (this.talking = false)],
     ];
     for (const [ev, fn] of handlers) bus.on(ev, fn);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -285,7 +331,7 @@ export class GameScene extends Phaser.Scene {
 
     this.repathTimer = Math.max(0, this.repathTimer - dt);
     this.player.sneaking = this.sneakToggle || this.keys.SHIFT.isDown;
-    this.player.update(dt, this.keyboardDir());
+    this.player.update(dt, this.talking ? { x: 0, y: 0 } : this.keyboardDir());
 
     if (this.approachCat) {
       const c = this.approachCat;
@@ -293,9 +339,19 @@ export class GameScene extends Phaser.Scene {
       else if (this.distTo(c) <= INTERACT_RANGE) {
         this.player.stop();
         this.approachCat = null;
-        this.interactWith(c);
+        this.interactWith({ kind: 'cat', cat: c });
       }
     }
+    if (this.approachNpc) {
+      const n = this.approachNpc;
+      if (!n.here) this.approachNpc = null;
+      else if (this.distTo(n) <= INTERACT_RANGE) {
+        this.player.stop();
+        this.approachNpc = null;
+        this.talkTo(n);
+      }
+    }
+    this.updateBande(dt);
 
     for (const cat of this.cats) {
       const event = cat.update(dt, this.player, state.cat(cat.def.id).level);
@@ -338,6 +394,7 @@ export class GameScene extends Phaser.Scene {
     emitGame({ type: 'phase', phase, day: clock.day });
 
     this.updatePresence(null);
+    for (const npc of this.npcs) npc.setPresent(npc.def.phases.includes(phase));
   }
 
   private checkWeather(): void {
@@ -379,48 +436,70 @@ export class GameScene extends Phaser.Scene {
     state.raiseLevel(cat.def.id, LEVEL.SEEN);
     cat.showIcon('icon-question', 2);
     cat.emote(CAT_FRAME.curious, 2);
-    bus.emit(EV.TOAST, t('toast.newCat', { name: cat.def.name }));
+    bus.emit(EV.TOAST, t(cat.def.bande ? 'toast.newBande' : 'toast.newCat', { name: cat.def.name }));
     emitGame({ type: 'cat-seen', cat: cat.def.id });
   }
 
   // ------------------------------------------------------------------ interaction
 
-  private nearestApproachableCat(): Cat | null {
-    let best: Cat | null = null;
+  /** The nearest cat or person within reach. */
+  private nearestTarget(): Target | null {
+    let best: Target | null = null;
     let bestD = INTERACT_RANGE;
     for (const cat of this.cats) {
       const d = this.distTo(cat);
       if (cat.approachable && d <= bestD) {
-        best = cat;
+        best = { kind: 'cat', cat };
+        bestD = d;
+      }
+    }
+    for (const npc of this.npcs) {
+      const d = this.distTo(npc);
+      if (npc.here && d <= bestD) {
+        best = { kind: 'npc', npc };
         bestD = d;
       }
     }
     return best;
   }
 
-  private actionFor(cat: Cat): InteractPrompt['action'] {
+  private actionFor(target: Target): InteractPrompt['action'] {
+    if (target.kind === 'npc') return 'talk';
+    const cat = target.cat;
+    if (cat.def.bande) return !this.yarn.has(cat) && gameState().itemCount('yarn') > 0 ? 'distract' : 'bande';
     if (cat.pettedThisVisit) return 'content';
     if (cat.fedThisVisit || gameState().cat(cat.def.id).level >= LEVEL.FRIEND) return 'pet';
     return 'feed';
   }
 
   private updatePrompt(): void {
-    const cat = this.nearestApproachableCat();
-    const prompt: InteractPrompt | null = cat ? { catId: cat.def.id, catName: cat.def.name, action: this.actionFor(cat) } : null;
-    const key = prompt ? `${prompt.catId}:${prompt.action}` : '';
+    const target = this.talking ? null : this.nearestTarget();
+    let prompt: InteractPrompt | null = null;
+    if (target?.kind === 'cat') prompt = { targetId: target.cat.def.id, name: target.cat.def.name, action: this.actionFor(target) };
+    if (target?.kind === 'npc') prompt = { targetId: target.npc.def.id, name: target.npc.def.name, action: 'talk' };
+    const key = prompt ? `${prompt.targetId}:${prompt.action}` : '';
     if (key === this.promptKey) return;
     this.promptKey = key;
-    if (!cat) this.menuCat = null;
+    if (!target) this.menuCat = null;
     bus.emit(EV.PROMPT, prompt);
   }
 
   private interact(): void {
-    const cat = this.nearestApproachableCat();
-    if (cat) this.interactWith(cat);
+    if (this.talking) {
+      bus.emit(EV.DIALOGUE_NEXT);
+      return;
+    }
+    const target = this.nearestTarget();
+    if (target) this.interactWith(target);
   }
 
-  private interactWith(cat: Cat): void {
-    switch (this.actionFor(cat)) {
+  private interactWith(target: Target): void {
+    if (target.kind === 'npc') {
+      this.talkTo(target.npc);
+      return;
+    }
+    const cat = target.cat;
+    switch (this.actionFor(target)) {
       case 'content':
         bus.emit(EV.TOAST, t('toast.content', { name: cat.def.name }));
         break;
@@ -431,6 +510,12 @@ export class GameScene extends Phaser.Scene {
         this.menuCat = cat;
         bus.emit(EV.TREAT_MENU, cat.def.id);
         break;
+      case 'distract':
+        this.distract(cat);
+        break;
+      case 'bande':
+        bus.emit(EV.TOAST, t('toast.bande', { name: cat.def.name }));
+        break;
     }
   }
 
@@ -438,10 +523,112 @@ export class GameScene extends Phaser.Scene {
     if (!cat.approachable) return;
     if (this.distTo(cat) <= INTERACT_RANGE + 4) {
       this.player.stop();
-      this.interactWith(cat);
+      this.interactWith({ kind: 'cat', cat });
     } else if (this.player.walkTo(cat.sprite)) {
       this.approachCat = cat;
+      this.approachNpc = null;
     }
+  }
+
+  private tapNpc(npc: Npc): void {
+    if (this.distTo(npc) <= INTERACT_RANGE + 4) {
+      this.player.stop();
+      this.talkTo(npc);
+    } else if (this.player.walkTo(npc.sprite)) {
+      this.approachNpc = npc;
+      this.approachCat = null;
+    }
+  }
+
+  private talkTo(npc: Npc): void {
+    this.talking = true;
+    this.player.stop();
+    npc.face(this.player);
+    bus.emit(EV.PROMPT, null);
+    this.promptKey = '';
+    bus.emit(EV.DIALOGUE, talk(npc.def));
+    emitGame({ type: 'npc-talked', npc: npc.def.id });
+  }
+
+  // ------------------------------------------------------------------ Rote Bande
+
+  private updateBande(dt: number): void {
+    for (const cat of this.cats) {
+      if (!cat.def.bande || !cat.present) continue;
+
+      const yarn = this.yarn.get(cat);
+      if (yarn) {
+        // Batting the yarn around.
+        yarn.time -= dt;
+        if (cat.state === 'idle' && Math.random() < dt * 1.5) cat.emote(Math.random() < 0.5 ? CAT_FRAME.happy : CAT_FRAME.tail, 0.5);
+        if (yarn.time <= 0) {
+          yarn.img.destroy();
+          this.yarn.delete(cat);
+        }
+        continue;
+      }
+
+      // Shy cats don't like the Bande around.
+      for (const other of this.cats) {
+        if (other.def.bande || other.state !== 'idle' || other.def.shyness < 3) continue;
+        if (Phaser.Math.Distance.Between(cat.x, cat.y, other.x, other.y) < BANDE_SCARE) other.alert += dt * 0.25;
+      }
+
+      // Patrol between their spots.
+      if (cat.state !== 'idle') continue;
+      const timer = (this.patrol.get(cat) ?? Phaser.Math.FloatBetween(...BANDE_PATROL)) - dt;
+      this.patrol.set(cat, timer);
+      if (timer <= 0) {
+        this.patrol.delete(cat);
+        cat.moveTo(this.randomSpot(cat));
+      }
+    }
+  }
+
+  /** A Bande cat close enough smells the bowl and runs for it. */
+  private sendThief(bowl: Bowl): void {
+    let thief: Cat | null = null;
+    let best = BANDE_SMELL;
+    for (const cat of this.cats) {
+      if (!cat.def.bande || this.yarn.has(cat) || (cat.state !== 'idle' && cat.state !== 'arriving')) continue;
+      const d = Phaser.Math.Distance.Between(cat.x, cat.y, bowl.img.x, bowl.img.y);
+      if (d < best) {
+        thief = cat;
+        best = d;
+      }
+    }
+    if (!thief) return;
+    bowl.thief = thief;
+    thief.showIcon('icon-alert', 1.5);
+    thief.goToBowl({ x: bowl.img.x, y: bowl.img.y }, BANDE_SPEED);
+    bus.emit(EV.TOAST, t('toast.bandeComing', { name: thief.def.name }));
+  }
+
+  private steal(thief: Cat): void {
+    const bowl = this.bowl!;
+    const victim = bowl.cat;
+    this.removeBowl();
+    thief.emote(CAT_FRAME.happy, 1.5);
+    bus.emit(EV.TOAST, t('toast.bandeStole', { thief: thief.def.name, name: victim.def.name }));
+    if (victim.present && victim.state !== 'leaving' && victim.state !== 'fleeing') {
+      victim.emote(CAT_FRAME.alert, 0.8);
+      this.time.delayedCall(700, () => victim.present && victim.state !== 'leaving' && victim.leave(true));
+    }
+    emitGame({ type: 'bande-stole', cat: thief.def.id, victim: victim.def.id });
+  }
+
+  private distract(cat: Cat): void {
+    if (!gameState().useItem('yarn')) return;
+    // Roll the yarn a little past the cat; it pounces and stays busy.
+    const x = cat.x + (this.player.x < cat.x ? 10 : -10);
+    const y = cat.y + 2;
+    const img = this.add.image(x, y, 'yarn').setDepth(y);
+    this.tweens.add({ targets: img, angle: 360, duration: 900, repeat: -1 });
+    this.yarn.set(cat, { img, time: YARN_SECONDS });
+    if (this.bowl?.thief === cat) this.bowl.thief = undefined;
+    cat.emote(CAT_FRAME.curious, 0.8);
+    bus.emit(EV.TOAST, t('toast.distracted', { name: cat.def.name }));
+    emitGame({ type: 'bande-distracted', cat: cat.def.id });
   }
 
   private walkToPointer(pointer: Phaser.Input.Pointer): void {
@@ -464,6 +651,7 @@ export class GameScene extends Phaser.Scene {
     const img = this.add.image(Math.round(x), Math.round(y), `bowl-${item}`).setOrigin(0.5, 0.75).setDepth(y - 1);
     this.bowl = { img, item, cat };
     cat.waitForBowl();
+    this.sendThief(this.bowl);
     if (!this.stepBackHintShown) {
       this.stepBackHintShown = true;
       bus.emit(EV.TOAST, t('toast.stepBack', { name: cat.def.name }));
@@ -477,6 +665,10 @@ export class GameScene extends Phaser.Scene {
 
   private onAte(cat: Cat): void {
     const bowl = this.bowl;
+    if (cat.def.bande) {
+      if (bowl && bowl.thief === cat) this.steal(cat);
+      return;
+    }
     if (!bowl || bowl.cat !== cat) return;
     this.removeBowl();
     const state = gameState();

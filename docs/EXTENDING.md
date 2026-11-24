@@ -34,8 +34,8 @@ because existing saves refer to it.
    { "id": "catnip", "category": "treat", "color": "#7ab05a", "start": 0, "dailyRefill": 0, "max": 5 }
    ```
    - `category`: `treat` items appear in the feeding menu automatically.
-     `toy`, `key` and `story` are reserved for upcoming mechanics (decoy toys
-     against the Rote Bande, quest items).
+     `toy` items distract Rote Bande cats (only `yarn` is used so far).
+     `key` and `story` are reserved for quest items.
    - `start`: amount in a new game. `dailyRefill`: Frau Häberle's morning delivery.
 2. Add `"item.catnip"` to both language files.
 3. Give it out: as a quest reward, as a daily refill, or (later) from a shop or NPC.
@@ -46,9 +46,48 @@ because existing saves refer to it.
    the district definition. `likes`/`dislikes` are item ids. Petting zones are
    `head`, `cheeks`, `chin`, `back`, `belly` and `tail`.
    Add `"requiresFlag": "some-flag"` to keep the cat away until a story moment.
+   Optional weather habits:
+   ```json
+   "weather": { "avoids": ["rain"], "prefers": ["sunny"], "only": ["fog"],
+                "spots": { "rain": ["rathaus-arcade"] } }
+   ```
+   `only` = appears just in that weather, `avoids` = stays away, `prefers` =
+   always comes out then, `spots` = different spots in that weather (shelter).
+   Weathers: `sunny`, `cloudy`, `rain`, `fog`.
 2. Add `"cat.<id>.quirk"` to both language files.
-3. For a new coat, add a palette to `COATS` in `src/art/sprites.ts`.
-   Orange is reserved for the Rote Bande (concept §4.7).
+3. Coats live in `COATS` in `src/art/sprites.ts`: a look (`pattern`: plain,
+   tabby, tuxedo, spots, calico, socks; plus `longhair`, `mean`) and a palette
+   built with `catPalette()`. Cats are drawn procedurally by
+   `src/art/catArt.ts` at 32×32 in every mood, so a new coat needs no
+   drawing. Orange is reserved for the Rote Bande (concept §4.7).
+4. A Rote Bande member gets `"bande": true` (and `"shyness": 0`). It can't be
+   fed or petted, patrols its spots, steals bowls it can smell and is
+   distracted by `toy` items (the ball of yarn). `"size": 1.35` makes it bigger.
+
+## Add a person (NPC)
+
+Add an entry to `src/data/npcs.json`:
+
+```json
+{
+  "id": "boatman", "name": "Der Stocherkahnfahrer", "look": "jonas",
+  "district": "neckarfront", "spot": "boatman", "phases": ["morning", "afternoon"],
+  "greetings": 2, "gift": { "item": "tuna", "amount": 1 },
+  "hints": "any", "forecast": false,
+  "story": [{ "unlessFlag": "met-boatman", "line": "intro" }]
+}
+```
+
+- `spot` is a spot name in the district (add it there). The NPC stands on its
+  first tile during `phases`.
+- `look` is a sprite in `NPC_LOOKS` (`src/art/sprites.ts`): row patches and a
+  palette on top of the player figure.
+- Talking shows the greeting (`npc.<id>.greet.0 … greetings-1`), the daily
+  `gift`, every `story` line `npc.<id>.<line>` whose flag isn't set yet, a hint
+  about a cat you haven't befriended (`hints`: `any` or `night` cats) and, with
+  `forecast`, the coming weather.
+- Talking emits `npc-talked {npc}`, so a quest can say "talk to …" and set the
+  flag that ends a story line.
 
 ## Add a district (area)
 
@@ -103,8 +142,9 @@ Add an entry to `src/data/quests.json`:
 **Available events** (`GameEvent` in `src/systems/events.ts`):
 `cat-seen {cat}`, `cat-fed {cat, item, reaction}`, `cat-petted {cat}`,
 `cat-level {cat, level}`, `item-gained {item, amount}`, `area-entered {area}`,
-`phase {phase, day}`, `flag {flag}`.
+`phase {phase, day}`, `flag {flag}`, `weather {weather}`, `npc-talked {npc}`,
+`bande-stole {cat, victim}`, `bande-distracted {cat}`.
 
-New mechanics such as NPC dialogue, photo mode or the Rote Bande add an event
+New mechanics such as photo mode add an event
 type there and emit it with `emitGame(...)`. Quests can then use it
 immediately, without changes to the quest system.

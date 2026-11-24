@@ -147,6 +147,33 @@ const PLAYER_PALETTE: Palette = {
   o: '#1e1a24', h: '#5a3a2a', s: '#f0c8a0', e: '#2a2030', w: '#c84a3a', j: '#3d5a80', p: '#4a4458', b: '#2a2430',
 };
 
+// ---------------------------------------------------------------- NPCs
+// Variants of the player figure: own rows where they differ, own palette.
+// Frames: 0 front, 1 back, 2 side.
+const NPC_LOOKS: Record<string, { patch: Record<number, string>; palette: Palette }> = {
+  // Frau Häberle: grey bun, purple cardigan, white apron, blue skirt.
+  haeberle: {
+    patch: {
+      0: '.......oo.......',
+      1: '.....ohhhho.....',
+      9: '...ojjwwwwjjo...',
+      10: '...ojjwwwwjjo...',
+      11: '...osjwwwwjso...',
+      12: '....ojwwwwjo....',
+    },
+    palette: { ...PLAYER_PALETTE, h: '#cfcad0', w: '#f0ece0', j: '#7a5a8a', p: '#4a5a7a', b: '#3a2a20' },
+  },
+  // Jonas: red beanie and scarf, long green coat.
+  jonas: {
+    patch: {
+      1: '.....owwwwo.....',
+      2: '....owwwwwwo....',
+      13: '....ojjjjjjo....',
+    },
+    palette: { ...PLAYER_PALETTE, h: '#6a4a2a', w: '#b8443a', j: '#3e5a4a', p: '#3a3a48', b: '#2a2430' },
+  },
+};
+
 // ---------------------------------------------------------------- icons (8×8)
 const ICONS: Record<string, { rows: string[]; palette: Palette }> = {
   'icon-heart': {
@@ -236,6 +263,20 @@ export function registerSprites(scene: Phaser.Scene): void {
   for (const item of itemsOfCategory('treat')) {
     makePixelTexture(scene, `bowl-${item.id}`, [BOWL], { o: '#2a2a38', b: '#5a7ab0', f: item.color });
   }
+
+  for (const [look, { patch, palette }] of Object.entries(NPC_LOOKS)) {
+    // Patches meant for the front also apply to the back and side where the row exists.
+    const sidePatch = Object.fromEntries(Object.entries(patch).filter(([row]) => Number(row) <= 2));
+    makePixelTexture(scene, `npc-${look}`, [withRows(P_FRONT, patch), withRows(P_BACK, patch), withRows(P_SIDE, sidePatch)], palette);
+  }
+
+  // Ball of yarn (decoy toy against the Rote Bande).
+  makePixelTexture(
+    scene,
+    'yarn',
+    [['..oooo..', '.orrlro.', 'orlrrlro', 'orrlrrro', 'olrrlrro', 'orrrlrlo', '.olrrro.', '..oooo..']],
+    { o: '#4a1a2a', r: '#c84a6a', l: '#f08aa4' },
+  );
 
   // Weather particles.
   makePixelTexture(scene, 'raindrop', [['r', 'r', 'r', 'r', 'r']], { r: '#b8d4f0' });

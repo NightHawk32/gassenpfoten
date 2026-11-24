@@ -58,6 +58,7 @@ export const marktplatz: DistrictDef = {
       { x: 29, y: 2 },
     ],
     'south-alley': [{ x: 6, y: 27 }],
+    haeberle: [{ x: 2, y: 15 }],
     'church-garden': [
       { x: 28, y: 24 },
       { x: 36, y: 24 },

@@ -59,6 +59,7 @@ export const neckarfront: DistrictDef = {
       { x: 8, y: 6 },
       { x: 31, y: 6 },
     ],
+    jonas: [{ x: 23, y: 15 }],
     eberhardsbruecke: [
       { x: 34, y: 21 },
       { x: 35, y: 24 },
