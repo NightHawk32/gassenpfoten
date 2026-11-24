@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../config';
+import { CAT_FRAME } from '../art/sprites';
 import { CATS, treatReaction } from '../data/cats';
 import { Cat } from '../entities/Cat';
 import { Player } from '../entities/Player';
@@ -343,6 +344,7 @@ export class GameScene extends Phaser.Scene {
     if (this.distTo(cat) > SEE_RANGE || !this.cameras.main.worldView.contains(cat.x, cat.y)) return;
     state.raiseLevel(cat.def.id, LEVEL.SEEN);
     cat.showIcon('icon-question', 2);
+    cat.emote(CAT_FRAME.curious, 2);
     bus.emit(EV.TOAST, t('toast.newCat', { name: cat.def.name }));
     emitGame({ type: 'cat-seen', cat: cat.def.id });
   }
@@ -450,10 +452,14 @@ export class GameScene extends Phaser.Scene {
 
     if (reaction === 'disliked') {
       bus.emit(EV.TOAST, t('toast.disliked', params));
-      cat.leave(false);
+      cat.emote(CAT_FRAME.annoyed, 1.2);
+      this.time.delayedCall(1200, () => cat.state === 'idle' && cat.leave(false));
     } else {
       cat.fedThisVisit = true;
-      if (reaction === 'liked') cat.showIcon('icon-heart', 2);
+      if (reaction === 'liked') {
+        cat.showIcon('icon-heart', 2);
+        cat.emote(CAT_FRAME.happy, 2);
+      }
       bus.emit(EV.TOAST, t(reaction === 'liked' ? 'toast.liked' : 'toast.neutral', params));
       if (state.raiseLevel(id, LEVEL.FED)) this.toastLevel(cat);
       if (state.addBond(id, reaction === 'liked' ? 2 : 1)) this.toastLevel(cat);
@@ -487,6 +493,9 @@ export class GameScene extends Phaser.Scene {
       cat.state = 'idle';
       cat.pettedThisVisit = true;
       cat.showIcon('icon-heart', 2.5);
+      // Content: lies down for a nap (sleeps properly at night).
+      cat.emote(CAT_FRAME.happy, 2);
+      cat.rest(this.phase === 'night');
       if (state.raiseLevel(catId, LEVEL.FRIEND)) this.toastLevel(cat);
       if (state.addBond(catId, 2)) this.toastLevel(cat);
       emitGame({ type: 'cat-petted', cat: catId });

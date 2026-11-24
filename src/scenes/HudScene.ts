@@ -334,7 +334,7 @@ export class HudScene extends Phaser.Scene {
     for (const cat of CATS) {
       const p = state.cat(cat.id);
       const known = p.level > LEVEL.UNKNOWN;
-      const icon = this.add.image(0, y, catTextureKey(cat.coat), 0).setOrigin(0).setScale(px * 2);
+      const icon = this.add.image(0, y, catTextureKey(cat.coat), 0).setOrigin(0).setScale(px);
       if (!known) icon.setTintFill(0x0d0a12);
       content.add(icon);
       const startY = y;

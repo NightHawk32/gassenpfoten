@@ -1,80 +1,78 @@
 import Phaser from 'phaser';
 import { itemsOfCategory } from '../data/items';
+import { buildCatFrames, CAT_FRAME, CAT_SIZE, catPalette, type CatLook, type Region } from './catArt';
 import { makePixelTexture, mirror, withRows, type Palette } from './pixelArt';
 
 /*
  * Placeholder sprites for the M1 prototype (own work, CC0).
- * Cats are 16×16, the player 16×20, icons 8×8.
+ * Cats are 32×32 (shown at half size), the player 16×20, icons 8×8.
  */
 
 // ---------------------------------------------------------------- cats
-// a outline · b fur · d pattern · c pink (ears, nose) · e eyes · f white
-const CAT_SIT = [
-  '................',
-  '..a.......a.....',
-  '.aba.....aba....',
-  '.acbaaaaabca....',
-  '.abbbbbbbbbba...',
-  '.abdbbbbbdbba...',
-  '.abeabbbaeba....',
-  '.abbbbcbbbbba...',
-  '..abfffffba.....',
-  '..abbbbbbbbaa.a.',
-  '.abdbdbdbdbbbaba',
-  '.abbbbbbbbbbbba.',
-  '.abdbdbdbdbbba..',
-  '.abfabbbbafba...',
-  '..aa.aaaa.aa....',
-  '................',
-];
+// Drawn procedurally at 32×32 (see catArt.ts) and shown at half scale.
 
-const CAT_TAIL = withRows(CAT_SIT, {
-  7: '.abbbbcbbbbba.a.',
-  8: '..abfffffba..aba',
-  9: '..abbbbbbbbaaba.',
-  10: '.abdbdbdbdbbba..',
-});
+export { CAT_FRAME } from './catArt';
 
-const CAT_BLINK = withRows(CAT_SIT, { 6: '.abddbbbddba....' });
+export type Coat =
+  | 'tuxedo'
+  | 'brown-tabby'
+  | 'grey-tabby'
+  | 'silver'
+  | 'white-spotted'
+  | 'black'
+  | 'calico'
+  | 'grey-socks'
+  | 'orange';
 
-const CAT_WALK_1 = [
-  '................',
-  '................',
-  '................',
-  '................',
-  '..a.a...........',
-  '.abab.........a.',
-  '.abbba.......ab.',
-  '.aeabaaaaaaaab..',
-  '.acbbbdbdbdbba..',
-  '..affbbbbbbbba..',
-  '...abbbbbbbbba..',
-  '...ab.ab..ab.ab.',
-  '...aa.aa..aa.aa.',
-  '................',
-  '................',
-  '................',
-];
-const CAT_WALK_2 = withRows(CAT_WALK_1, {
-  11: '....abab...abab.',
-  12: '....aaaa...aaaa.',
-});
-
-/** Frame indices in every cat texture. */
-export const CAT_FRAME = { sit: 0, tail: 1, blink: 2, walk1: 3, walk2: 4 } as const;
-
-export type Coat = 'tuxedo' | 'brown-tabby' | 'grey-tabby' | 'silver' | 'white-spotted' | 'orange';
-
-export const COATS: Record<Coat, Palette> = {
-  tuxedo: { a: '#121016', b: '#2b2932', d: '#2b2932', c: '#e08a96', e: '#d8d05a', f: '#f2eee6' },
-  'brown-tabby': { a: '#2e1f17', b: '#a8744a', d: '#6e4529', c: '#e08a96', e: '#7fc46a', f: '#ecd8b8' },
-  'grey-tabby': { a: '#26242a', b: '#8f8c94', d: '#55525c', c: '#d9909a', e: '#e0a840', f: '#d8d3cc' },
-  silver: { a: '#2e2c34', b: '#b4b0ba', d: '#c8c4cc', c: '#e0a0aa', e: '#6ab0d8', f: '#efedf2' },
-  'white-spotted': { a: '#2a2428', b: '#f0ebe2', d: '#3a3236', c: '#e89aa4', e: '#d8b048', f: '#ffffff' },
-  orange: { a: '#3a1e10', b: '#e8873a', d: '#b85a1e', c: '#f0a0a0', e: '#9ad04a', f: '#f6dcb8' },
+/** Orange is reserved for the Rote Bande (concept §4.7). */
+export const COATS: Record<Coat, { look: CatLook; palette: Palette }> = {
+  tuxedo: {
+    look: { pattern: 'tuxedo' },
+    palette: catPalette({ fur: '#26242c', shadow: '#16141a', light: '#3a3842', pattern: '#26242c', eyes: '#d8d05a' }),
+  },
+  'brown-tabby': {
+    look: { pattern: 'tabby' },
+    palette: catPalette({ fur: '#a8744a', shadow: '#83593a', light: '#c08c5e', pattern: '#5e3c24', eyes: '#7fc46a', white: '#ecd8b8' }),
+  },
+  'grey-tabby': {
+    look: { pattern: 'tabby' },
+    palette: catPalette({ fur: '#8f8c94', shadow: '#6e6b74', light: '#a8a5ac', pattern: '#4c4952', eyes: '#e0a840', white: '#d8d3cc' }),
+  },
+  silver: {
+    look: { pattern: 'tabby', longhair: true },
+    palette: catPalette({ fur: '#b4b0ba', shadow: '#918d98', light: '#cecad2', pattern: '#a29ea8', eyes: '#6ab0d8', white: '#efedf2' }),
+  },
+  'white-spotted': {
+    look: { pattern: 'spots' },
+    palette: catPalette({ fur: '#f0ebe2', shadow: '#d0c8bc', light: '#fffcf6', pattern: '#3a3236', eyes: '#d8b048', white: '#fffcf6' }),
+  },
+  black: {
+    look: { pattern: 'plain' },
+    palette: catPalette({ fur: '#1e1c24', shadow: '#121016', light: '#34323e', pattern: '#1e1c24', eyes: '#f0c832', outline: '#0a080c' }),
+  },
+  calico: {
+    look: { pattern: 'calico' },
+    palette: catPalette({ fur: '#f2ece2', shadow: '#d4cabc', light: '#fffaf2', pattern: '#d88a3e', pattern2: '#2a2428', eyes: '#8ac05a' }),
+  },
+  'grey-socks': {
+    look: { pattern: 'socks' },
+    palette: catPalette({ fur: '#6e7080', shadow: '#555766', light: '#868898', pattern: '#6e7080', eyes: '#e8c048' }),
+  },
+  orange: {
+    look: { pattern: 'tabby', mean: true },
+    palette: catPalette({ fur: '#e8873a', shadow: '#c06a28', light: '#f4a45a', pattern: '#a8501a', eyes: '#9ad04a', white: '#f6dcb8' }),
+  },
 };
 
 export const catTextureKey = (coat: Coat) => `cat-${coat}`;
+
+const catRegions = new Map<Coat, (Region | null)[][]>();
+
+/** Body part at a pixel of a cat frame (32×32 texture coordinates). */
+export function catRegionAt(coat: Coat, frame: number, x: number, y: number): Region | null {
+  if (x < 0 || y < 0 || x >= CAT_SIZE || y >= CAT_SIZE) return null;
+  return catRegions.get(coat)?.[frame]?.[y * CAT_SIZE + x] ?? null;
+}
 
 // ---------------------------------------------------------------- player
 // o outline · h hair · s skin · e eyes · w scarf · j jacket · p trousers · b shoes
@@ -196,11 +194,21 @@ const LAMP = [
 export function registerSprites(scene: Phaser.Scene): void {
   for (const coat of Object.keys(COATS) as Coat[]) {
     const key = catTextureKey(coat);
-    makePixelTexture(scene, key, [CAT_SIT, CAT_TAIL, CAT_BLINK, CAT_WALK_1, CAT_WALK_2], COATS[coat]);
+    const { frames, regions } = buildCatFrames(COATS[coat].look);
+    catRegions.set(coat, regions);
+    makePixelTexture(scene, key, frames, COATS[coat].palette);
     scene.anims.create({
       key: `${key}-walk`,
-      frames: scene.anims.generateFrameNumbers(key, { frames: [CAT_FRAME.walk1, CAT_FRAME.walk2] }),
-      frameRate: 6,
+      frames: scene.anims.generateFrameNumbers(key, {
+        frames: [CAT_FRAME.walk1, CAT_FRAME.walk2, CAT_FRAME.walk3, CAT_FRAME.walk4],
+      }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    scene.anims.create({
+      key: `${key}-eat`,
+      frames: scene.anims.generateFrameNumbers(key, { frames: [CAT_FRAME.eat1, CAT_FRAME.eat2] }),
+      frameRate: 4,
       repeat: -1,
     });
   }

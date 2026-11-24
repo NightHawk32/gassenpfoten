@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { CAT_FRAME, catTextureKey } from '../art/sprites';
+import { CAT_SIZE, type Region } from '../art/catArt';
+import { CAT_FRAME, catRegionAt, catTextureKey } from '../art/sprites';
 import { catDef, zoneReaction, type CatDef, type PetZone } from '../data/cats';
 import { t, type TextKey } from '../i18n/i18n';
 import { bus, EV, type PetResult } from '../systems/events';
@@ -8,18 +9,29 @@ import { uiScale } from '../systems/viewport';
 import { makeButton, type Button } from '../ui/button';
 
 /**
- * Petting zones on the 16×16 sitting-cat sprite (pixel rectangles, inclusive).
- * The first match wins, so the tail is checked before the back.
+ * Petting zones come from the body part under the finger in the current
+ * frame (see catArt.ts), so they follow the tail and the head as the cat moves.
+ * The back is the side of the body; the belly is the middle of the front.
  */
-const ZONES: [PetZone, number, number, number, number][] = [
-  ['tail', 13, 7, 15, 12],
-  ['head', 1, 0, 11, 4],
-  ['cheeks', 0, 5, 3, 7],
-  ['cheeks', 9, 5, 12, 7],
-  ['chin', 4, 7, 8, 8],
-  ['back', 9, 9, 12, 13],
-  ['belly', 2, 9, 8, 14],
-];
+function zoneFor(region: Region | null, x: number): PetZone | null {
+  switch (region) {
+    case 'head':
+    case 'ear':
+      return 'head';
+    case 'cheek':
+      return 'cheeks';
+    case 'chin':
+      return 'chin';
+    case 'chest':
+      return 'belly';
+    case 'body':
+      return Math.abs(x - CAT_SIZE / 2) <= 4 ? 'belly' : 'back';
+    case 'tail':
+      return 'tail';
+    default:
+      return null;
+  }
+}
 
 const FAVOURITE_RATE = 0.12;
 const NEUTRAL_RATE = 0.04;
@@ -96,16 +108,17 @@ export class PetScene extends Phaser.Scene {
     this.cameras.main.setSize(w, h);
     this.dim.setSize(w, h);
 
-    this.catScale = Math.max(4, Math.floor((Math.min(w, h * 0.75) * 0.6) / 16));
+    // catScale = screen pixels per texture pixel (the texture is 32×32).
+    this.catScale = Math.max(2, Math.floor((Math.min(w, h * 0.75) * 0.6) / CAT_SIZE));
     this.cat.setScale(this.catScale).setPosition(Math.round(w / 2), Math.round(h * 0.52));
-    this.alertIcon.setScale(this.catScale / 2).setPosition(this.cat.x + this.catScale * 7, this.cat.y - this.catScale * 9);
+    this.alertIcon.setScale(this.catScale).setPosition(this.cat.x + this.catScale * 12, this.cat.y - this.catScale * 16);
 
     const wrap = Math.min(w * 0.9, 480 * s);
     this.nameText.setFontSize(Math.round(22 * s)).setPosition(w / 2, m);
     this.hintText.setFontSize(Math.round(11 * s)).setWordWrapWidth(wrap, true).setPosition(w / 2, m + this.nameText.height);
 
     const barW = Math.min(w * 0.6, 220 * s);
-    const barY = this.cat.y + this.catScale * 9 + Math.round(10 * s);
+    const barY = this.cat.y + this.catScale * 17 + Math.round(10 * s);
     this.barBg.setSize(barW, Math.round(8 * s)).setPosition(w / 2 - barW / 2, barY);
     this.barFill.setPosition(w / 2 - barW / 2, barY);
     this.feedbackText.setFontSize(Math.round(13 * s)).setWordWrapWidth(wrap, true).setPosition(w / 2, barY + Math.round(10 * s));
@@ -125,9 +138,9 @@ export class PetScene extends Phaser.Scene {
 
     this.cat.setX(Math.round(this.scale.width / 2));
     if (zone && zoneReaction(this.def, zone) === 'noGo') {
-      // Ears back, tense, "!" – let go quickly or the cat leaves.
+      // Ears back, narrowed eyes, then fur up and "!" – let go quickly or the cat leaves.
       this.warn += dt;
-      this.cat.setTint(0xffb0b0).setFrame(CAT_FRAME.sit);
+      this.cat.setFrame(this.warn > NO_GO_PATIENCE * 0.5 ? CAT_FRAME.alert : CAT_FRAME.annoyed);
       this.cat.setX(this.cat.x + Math.sin(this.time.now / 25) * this.catScale * 0.3);
       this.alertIcon.setVisible(true);
       if (this.warn >= NO_GO_PATIENCE) this.finish('left');
@@ -135,7 +148,6 @@ export class PetScene extends Phaser.Scene {
     }
 
     this.warn = Math.max(0, this.warn - dt * 2);
-    this.cat.clearTint();
     this.alertIcon.setVisible(false);
     const bonus = stroking ? STROKE_BONUS : 1;
 
@@ -147,7 +159,11 @@ export class PetScene extends Phaser.Scene {
       }
     } else if (zone) {
       this.mood += dt * NEUTRAL_RATE * bonus;
-      this.pose(dt, CAT_FRAME.tail, 0.6);
+      this.pose(dt, CAT_FRAME.blink, 0.9);
+    } else if (this.mood < 0.2) {
+      // Getting bored: the tail starts to swish.
+      this.mood -= dt * BOREDOM_RATE;
+      this.pose(dt, CAT_FRAME.tail, 0.5);
     } else {
       this.mood -= dt * BOREDOM_RATE;
       this.pose(dt, CAT_FRAME.sit, 0);
@@ -160,17 +176,20 @@ export class PetScene extends Phaser.Scene {
   }
 
   private zoneAt(x: number, y: number): PetZone | null {
-    const lx = Math.floor((x - (this.cat.x - 8 * this.catScale)) / this.catScale);
-    const ly = Math.floor((y - (this.cat.y - 8 * this.catScale)) / this.catScale);
-    for (const [zone, x0, y0, x1, y1] of ZONES) {
-      if (lx >= x0 && lx <= x1 && ly >= y0 && ly <= y1) return zone;
+    const half = (CAT_SIZE / 2) * this.catScale;
+    const lx = Math.floor((x - (this.cat.x - half)) / this.catScale);
+    const ly = Math.floor((y - (this.cat.y - half)) / this.catScale);
+    // Look a pixel around the finger too, so the outline and thin tails count.
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const zone = zoneFor(catRegionAt(this.def.coat, Number(this.cat.frame.name), lx + dx, ly + dy), lx);
+      if (zone) return zone;
     }
     return null;
   }
 
   /** Purring: slow blinks, floating notes and a gentle vibration on phones. */
   private purr(dt: number): void {
-    this.pose(dt, CAT_FRAME.blink, 0.8);
+    this.pose(dt, CAT_FRAME.happy, 0.8, CAT_FRAME.purr);
     this.noteTimer -= dt;
     if (this.noteTimer <= 0) {
       this.noteTimer = 0.35;
@@ -183,26 +202,29 @@ export class PetScene extends Phaser.Scene {
     }
   }
 
-  /** Shows `frame` now and then (every `every` seconds), otherwise sitting. */
-  private pose(dt: number, frame: number, every: number): void {
+  /** Shows `frame` now and then (every `every` seconds), otherwise `base`. */
+  private pose(dt: number, frame: number, every: number, base: number = CAT_FRAME.sit): void {
+    const current = Number(this.cat.frame.name);
+    // Switching mood (e.g. from purring back to sitting) happens at once.
+    if (current !== frame && current !== base) this.poseTimer = 0;
     this.poseTimer -= dt;
     if (this.poseTimer > 0) return;
     if (every <= 0) {
-      this.cat.setFrame(CAT_FRAME.sit);
+      this.cat.setFrame(base);
       return;
     }
-    const showing = Number(this.cat.frame.name) === frame;
-    this.cat.setFrame(showing ? CAT_FRAME.sit : frame);
-    this.poseTimer = showing ? every : 0.35;
+    const showing = current === frame;
+    this.cat.setFrame(showing ? base : frame);
+    this.poseTimer = showing ? every : 0.45;
   }
 
   private floatIcon(key: string): void {
-    const x = this.cat.x + Phaser.Math.Between(-6, 6) * this.catScale;
-    const y = this.cat.y - 7 * this.catScale;
-    const icon = this.add.image(x, y, key).setScale(this.catScale / 2.5);
+    const x = this.cat.x + Phaser.Math.Between(-12, 12) * this.catScale;
+    const y = this.cat.y - 14 * this.catScale;
+    const icon = this.add.image(x, y, key).setScale(this.catScale / 1.25);
     this.tweens.add({
       targets: icon,
-      y: y - 6 * this.catScale,
+      y: y - 12 * this.catScale,
       alpha: 0,
       duration: 1100,
       onComplete: () => icon.destroy(),
@@ -216,19 +238,19 @@ export class PetScene extends Phaser.Scene {
   private finish(result: PetResult): void {
     if (this.finished) return;
     this.finished = true;
-    this.cat.clearTint();
     this.alertIcon.setVisible(false);
     navigator.vibrate?.(0);
 
     let delay = 0;
     if (result === 'happy') {
-      this.cat.setFrame(CAT_FRAME.blink);
+      this.cat.setFrame(CAT_FRAME.happy);
       for (let i = 0; i < 6; i++) this.time.delayedCall(i * 120, () => this.floatIcon('icon-heart'));
       this.feedbackText.setText(t('toast.petHappy', { name: this.def.name }));
       delay = 1400;
     } else if (result === 'left') {
       this.cat.setFrame(CAT_FRAME.walk1).setFlipX(true);
-      this.tweens.add({ targets: this.cat, x: this.scale.width + 16 * this.catScale, duration: 900 });
+      this.cat.play(`${catTextureKey(this.def.coat)}-walk`);
+      this.tweens.add({ targets: this.cat, x: this.scale.width + CAT_SIZE * this.catScale, duration: 900 });
       this.feedbackText.setText(t('toast.petLeft', { name: this.def.name }));
       delay = 1000;
     }

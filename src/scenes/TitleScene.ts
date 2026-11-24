@@ -131,7 +131,7 @@ export class TitleScene extends Phaser.Scene {
     this.place('clock', cx, top + 72 * s);
     const catY = top + 112 * s;
     const gap = 22 * px;
-    this.cats.forEach((c, i) => c.setScale(2 * px).setPosition(Math.round(cx + (i - 1) * gap * 1.6), Math.round(catY)));
+    this.cats.forEach((c, i) => c.setScale(px).setPosition(Math.round(cx + (i - 1) * gap * 1.6), Math.round(catY)));
 
     for (const b of this.buttons) b.style(s);
     this.playBtn.style(s, 18);

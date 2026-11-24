@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { CAT_FRAME, catTextureKey } from '../art/sprites';
+
+/** Cat textures are 32×32; in the world they take up one 16-pixel tile. */
+export const CAT_WORLD_SCALE = 0.5;
 import type { CatDef } from '../data/cats';
 import { tileCenter, toTile, type Point, type WorldGrid } from '../world/grid';
 import type { Player } from './Player';
@@ -21,6 +24,9 @@ const WALK_SPEED = 18;
 const FLEE_SPEED = 80;
 const EAT_TIME = 2.6;
 
+/** Frames that are a resting pose rather than a short gesture. */
+const RESTING: number[] = [CAT_FRAME.loaf, CAT_FRAME.sleep];
+
 export class Cat {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly icon: Phaser.GameObjects.Image;
@@ -35,10 +41,14 @@ export class Cat {
   private speed = WALK_SPEED;
   private afterWalk: (() => void) | null = null;
   private idleTimer = 2;
-  private poseTimer = 0;
   private iconTimer = 0;
   private eatTimer = 0;
   private readonly textureKey: string;
+  private readonly size: number;
+  /** Pose shown while idle (sitting, loafing or asleep). */
+  private restFrame: number = CAT_FRAME.sit;
+  /** A gesture or mood (happy, annoyed …) that overrides the idle pose for a while. */
+  private emoteTimer = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -47,9 +57,14 @@ export class Cat {
     private readonly exits: Point[],
   ) {
     this.textureKey = catTextureKey(def.coat);
-    this.sprite = scene.add.sprite(0, 0, this.textureKey, CAT_FRAME.sit).setOrigin(0.5, 0.85).setVisible(false);
-    // Generous hit area so cats are easy to tap on a phone.
-    this.sprite.setInteractive(new Phaser.Geom.Rectangle(-8, -8, 32, 32), Phaser.Geom.Rectangle.Contains);
+    this.size = def.size ?? 1;
+    this.sprite = scene.add
+      .sprite(0, 0, this.textureKey, CAT_FRAME.sit)
+      .setOrigin(0.5, 0.92)
+      .setScale(CAT_WORLD_SCALE * this.size)
+      .setVisible(false);
+    // Generous hit area (texture pixels) so cats are easy to tap on a phone.
+    this.sprite.setInteractive(new Phaser.Geom.Rectangle(-16, -16, 64, 64), Phaser.Geom.Rectangle.Contains);
     this.sprite.setData('cat', this);
     this.icon = scene.add.image(0, 0, 'icon-alert').setOrigin(0.5, 1).setDepth(10002).setVisible(false);
   }
@@ -160,6 +175,7 @@ export class Cat {
         this.path.shift();
         if (!this.path.length) {
           this.sprite.anims.stop();
+          this.restFrame = CAT_FRAME.sit;
           this.sprite.setFrame(CAT_FRAME.sit);
           const done = this.afterWalk;
           this.afterWalk = null;
@@ -173,15 +189,16 @@ export class Cat {
       }
     } else if (this.state === 'eating') {
       this.eatTimer -= dt;
-      // Chewing: alternate between sitting and closed eyes.
-      this.sprite.setFrame(Math.floor(this.eatTimer * 4) % 2 ? CAT_FRAME.blink : CAT_FRAME.sit);
+      this.sprite.anims.play(`${this.textureKey}-eat`, true);
       if (this.eatTimer <= 0) {
         this.state = 'idle';
+        this.sprite.anims.stop();
         this.sprite.setFrame(CAT_FRAME.sit);
         event = 'ate';
       }
     } else if (this.state === 'idle' || this.state === 'waiting') {
       this.idleBehaviour(dt);
+      this.bodyLanguage();
     }
 
     // Icons: a timed icon wins; otherwise show "!" while nervous.
@@ -195,28 +212,63 @@ export class Cat {
     }
 
     this.sprite.setDepth(this.sprite.y);
-    this.icon.setPosition(Math.round(this.x), Math.round(this.y - 15));
+    this.icon.setPosition(Math.round(this.x), Math.round(this.y - 15 * this.size));
     return event;
   }
 
+  /** Shows a mood for a while (happy after a favourite treat, annoyed after a bad one …). */
+  emote(frame: number, seconds: number): void {
+    if (this.path.length) return;
+    this.sprite.anims.stop();
+    this.sprite.setFrame(frame);
+    this.emoteTimer = seconds;
+  }
+
+  /** Lies down (content after petting, or at night). */
+  rest(sleep: boolean): void {
+    this.restFrame = sleep ? CAT_FRAME.sleep : CAT_FRAME.loaf;
+    if (!this.path.length && this.emoteTimer <= 0) this.sprite.setFrame(this.restFrame);
+  }
+
+  /** Ears and fur show how nervous the cat is, so the player can read it and slow down. */
+  private bodyLanguage(): void {
+    if (this.alert > 0.55) {
+      this.restFrame = CAT_FRAME.sit;
+      this.emoteTimer = 0;
+      this.sprite.setFrame(CAT_FRAME.alert);
+    } else if (this.alert > 0.2 && this.emoteTimer <= 0) {
+      // Noticed you: ears up, head tilted, wakes up.
+      this.restFrame = CAT_FRAME.sit;
+      this.sprite.setFrame(CAT_FRAME.curious);
+    } else if (this.emoteTimer <= 0 && Number(this.sprite.frame.name) === CAT_FRAME.curious) {
+      this.sprite.setFrame(this.restFrame);
+    }
+  }
+
   private idleBehaviour(dt: number): void {
-    if (this.poseTimer > 0) {
-      this.poseTimer -= dt;
-      if (this.poseTimer <= 0) this.sprite.setFrame(CAT_FRAME.sit);
+    if (this.emoteTimer > 0) {
+      this.emoteTimer -= dt;
+      if (this.emoteTimer <= 0) this.sprite.setFrame(this.restFrame);
       return;
     }
     this.idleTimer -= dt;
     if (this.idleTimer > 0) return;
     this.idleTimer = Phaser.Math.FloatBetween(2, 5);
 
+    // Lying cats mostly stay down and only blink now and then.
+    if (RESTING.includes(this.restFrame)) {
+      if (Math.random() < 0.15) this.restFrame = CAT_FRAME.sit;
+      this.sprite.setFrame(this.restFrame);
+      return;
+    }
+
     const roll = Math.random();
-    if (roll < 0.4) {
-      this.sprite.setFrame(CAT_FRAME.tail);
-      this.poseTimer = 0.5;
-    } else if (roll < 0.7) {
-      this.sprite.setFrame(CAT_FRAME.blink);
-      this.poseTimer = 0.25;
-    } else if (this.state === 'idle') {
+    if (roll < 0.25) this.emote(CAT_FRAME.tail, 0.6);
+    else if (roll < 0.45) this.emote(CAT_FRAME.blink, 0.25);
+    else if (roll < 0.6) this.emote(CAT_FRAME.groom, 1.6);
+    else if (roll < 0.66) this.emote(CAT_FRAME.meow, 0.7);
+    else if (roll < 0.78 && this.state === 'idle') this.rest(false);
+    else if (this.state === 'idle') {
       // Stretch the legs a little around the home spot.
       const home = toTile(this.home);
       const target = this.grid.nearestWalkable({
@@ -252,6 +304,8 @@ export class Cat {
   }
 
   private resetVisit(): void {
+    this.restFrame = CAT_FRAME.sit;
+    this.emoteTimer = 0;
     this.fedThisVisit = false;
     this.pettedThisVisit = false;
     this.alert = 0;

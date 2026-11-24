@@ -25,6 +25,8 @@ export interface CatDef {
   shyness: number;
   favourite: PetZone[];
   noGo: PetZone[];
+  /** Sprite size, 1 = normal. The Baron is bigger. */
+  size?: number;
   /** Optional: only appears once this story flag is set (e.g. by a quest). */
   requiresFlag?: string;
 }
