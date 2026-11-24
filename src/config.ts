@@ -3,9 +3,16 @@
  * See docs/GAME_CONCEPT.md §10.1 (GitHub Pages rules).
  */
 
-/** Internal resolution. Pixel art is scaled up in whole-number steps. */
-export const GAME_WIDTH = 640;
-export const GAME_HEIGHT = 360;
+/**
+ * Reference layout size (landscape). The canvas itself always has the real
+ * pixel size of the screen (see src/systems/viewport.ts); layouts scale from
+ * this size with uiScale(), pixel art with the whole-number pixelScale().
+ */
+export const DESIGN_WIDTH = 640;
+export const DESIGN_HEIGHT = 360;
+
+/** Upper limit for the device pixel ratio used for rendering (performance on 3× phones). */
+export const MAX_PIXEL_RATIO = 2;
 
 /** Tile size in pixels (concept §8). */
 export const TILE_SIZE = 16;

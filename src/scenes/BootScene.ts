@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
+import { registerSprites } from '../art/sprites';
+import { registerTiles } from '../art/tiles';
 import { assetUrl } from '../config';
 
-/** Loads the assets needed for the first screen. */
+/** Loads files and builds the procedural placeholder art. */
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -13,6 +15,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    registerTiles(this);
+    registerSprites(this);
     this.scene.start('Title');
   }
 }

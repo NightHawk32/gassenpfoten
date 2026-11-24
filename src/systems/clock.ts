@@ -53,6 +53,11 @@ export class GameClock {
     return this.totalMinutes;
   }
 
+  /** Jump to an absolute time (total game minutes since day 1, 00:00). */
+  set(totalMinutes: number): void {
+    this.totalMinutes = totalMinutes;
+  }
+
   /** Skip forward to the next occurrence of the given hour (e.g. sleeping until 06:00). */
   skipTo(hour: number): void {
     const target = hour * 60;

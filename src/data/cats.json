@@ -1,0 +1,90 @@
+[
+  {
+    "id": "mina",
+    "name": "Mina",
+    "coat": "tuxedo",
+    "district": "marktplatz",
+    "phases": [
+      "dawn",
+      "morning",
+      "midday",
+      "afternoon"
+    ],
+    "spots": [
+      "stiftskirche-steps",
+      "fountain"
+    ],
+    "likes": [
+      "chicken"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 1,
+    "favourite": [
+      "chin",
+      "cheeks"
+    ],
+    "noGo": [
+      "belly"
+    ]
+  },
+  {
+    "id": "brezel",
+    "name": "Brezel",
+    "coat": "brown-tabby",
+    "district": "marktplatz",
+    "phases": [
+      "dawn",
+      "morning",
+      "evening"
+    ],
+    "spots": [
+      "bakery-vent"
+    ],
+    "likes": [
+      "wet"
+    ],
+    "dislikes": [
+      "tuna"
+    ],
+    "shyness": 2,
+    "favourite": [
+      "head"
+    ],
+    "noGo": [
+      "belly",
+      "tail"
+    ]
+  },
+  {
+    "id": "professor",
+    "name": "Professor",
+    "coat": "grey-tabby",
+    "district": "marktplatz",
+    "phases": [
+      "afternoon",
+      "evening",
+      "night"
+    ],
+    "spots": [
+      "rathaus-arcade",
+      "north-alley"
+    ],
+    "likes": [
+      "dry"
+    ],
+    "dislikes": [
+      "chicken"
+    ],
+    "shyness": 3,
+    "favourite": [
+      "cheeks",
+      "back"
+    ],
+    "noGo": [
+      "belly",
+      "head"
+    ]
+  }
+]

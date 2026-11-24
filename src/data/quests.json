@@ -1,0 +1,32 @@
+[
+  {
+    "id": "first-friend",
+    "steps": [
+      { "id": "find", "event": "cat-seen" },
+      { "id": "feed", "event": "cat-fed" },
+      { "id": "pet", "event": "cat-petted" }
+    ],
+    "rewards": [
+      { "type": "item", "item": "chicken", "amount": 2 },
+      { "type": "flag", "flag": "tutorial-done" }
+    ]
+  },
+  {
+    "id": "gourmet",
+    "requires": ["first-friend"],
+    "steps": [{ "id": "liked", "event": "cat-fed", "match": { "reaction": "liked" }, "count": 3 }],
+    "rewards": [{ "type": "item", "item": "tuna", "amount": 3 }]
+  },
+  {
+    "id": "night-owl",
+    "requires": ["first-friend"],
+    "steps": [
+      { "id": "find", "event": "cat-seen", "match": { "cat": "professor" } },
+      { "id": "befriend", "event": "cat-level", "match": { "cat": "professor", "level": 3 } }
+    ],
+    "rewards": [
+      { "type": "item", "item": "dry", "amount": 3 },
+      { "type": "flag", "flag": "professor-friend" }
+    ]
+  }
+]

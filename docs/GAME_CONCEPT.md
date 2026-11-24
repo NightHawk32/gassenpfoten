@@ -216,7 +216,7 @@ The town is built as **stylised districts** connected by paths. It is recognisab
 | Language | **TypeScript** |
 | Build | **Vite** |
 | Maps | **Tiled** editor (tilemaps exported as JSON) |
-| Data | cats, NPCs and spawn rules as **JSON / data files**, so content can grow without code changes |
+| Data | cats, items, quests and districts as **data files and registries**, so content can grow without code changes (see `docs/EXTENDING.md`) |
 | Save | `localStorage` / IndexedDB, plus export/import of the save file |
 | Weather | simulated (Markov-style state machine, weighted by season) |
 | Time | in-game clock, 1 real minute = 1 game hour |
@@ -260,7 +260,7 @@ for each cat in district:
 |---|---|
 | **M0: Concept** | this document, repo setup |
 | **M0.5: Pipeline** ✅ scaffolded | Vite + TS + Phaser scaffold, GitHub Actions build, `base` path set; deployable placeholder page |
-| **M1: Prototype** | one district (Marktplatz), movement, 3 cats, feeding and petting, day/night cycle |
+| **M1: Prototype** ✅ playable | one district (Marktplatz), movement, 3 cats, feeding and petting, day/night cycle; plus cat journal and a data-driven quest system |
 | **M2: Vertical slice** | Altstadt + Neckarfront, weather system, 8 cats, 2 NPCs, Rote Bande basics, journal, saving |
 | **M3: Alpha** | all core districts, 20+ cats, NPC stories, sound |
 | **M4: 1.0** | 30–40 cats, seasons, polish, mobile, PWA |

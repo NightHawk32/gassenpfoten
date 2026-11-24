@@ -20,8 +20,11 @@ function detectLanguage(): Lang {
 let current: Lang = detectLanguage();
 const listeners = new Set<(lang: Lang) => void>();
 
-export function t(key: TextKey): string {
-  return tables[current][key] ?? key;
+/** Translated text; `{name}` placeholders are filled from `params`. */
+export function t(key: TextKey, params?: Record<string, string | number>): string {
+  let text = tables[current][key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v));
+  return text;
 }
 
 export function getLanguage(): Lang {
