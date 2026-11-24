@@ -63,13 +63,13 @@ export const marktplatz: DistrictDef = {
       { x: 36, y: 24 },
     ],
   },
-  // Later: { x: 6, y: 28, to: { district: 'neckarfront', entry: 'from-marktplatz' } }
   exits: [
     { x: 10, y: 1 },
     { x: 29, y: 1 },
-    { x: 6, y: 28 },
+    { x: 6, y: 28, to: { district: 'neckarfront', entry: 'from-marktplatz' } },
   ],
   entries: {
     start: { x: 20, y: 9 },
+    'from-neckarfront': { x: 6, y: 26 },
   },
 };

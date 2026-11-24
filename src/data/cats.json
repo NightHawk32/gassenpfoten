@@ -86,5 +86,63 @@
       "belly",
       "head"
     ]
+  },
+  {
+    "id": "hoelderlin",
+    "name": "Hölderlin",
+    "coat": "silver",
+    "district": "neckarfront",
+    "phases": [
+      "midday",
+      "afternoon"
+    ],
+    "spots": [
+      "hoelderlin-garden",
+      "neckarmauer"
+    ],
+    "likes": [
+      "tuna"
+    ],
+    "dislikes": [
+      "wet"
+    ],
+    "shyness": 2,
+    "favourite": [
+      "back",
+      "head"
+    ],
+    "noGo": [
+      "belly"
+    ]
+  },
+  {
+    "id": "kahn",
+    "name": "Kahn",
+    "coat": "white-spotted",
+    "district": "neckarfront",
+    "phases": [
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "stocherkahn",
+      "eberhardsbruecke"
+    ],
+    "likes": [
+      "tuna",
+      "chicken"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 3,
+    "favourite": [
+      "cheeks",
+      "chin"
+    ],
+    "noGo": [
+      "tail",
+      "belly"
+    ]
   }
 ]

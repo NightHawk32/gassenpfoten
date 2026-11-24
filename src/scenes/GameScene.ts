@@ -5,13 +5,13 @@ import { Cat } from '../entities/Cat';
 import { Player } from '../entities/Player';
 import { t, type TextKey } from '../i18n/i18n';
 import { daylight, type DayPhase } from '../systems/clock';
-import { bus, emitGame, EV, type InteractPrompt, type PetResult } from '../systems/events';
+import { bus, emitGame, EV, type GameEvent, type InteractPrompt, type PetResult } from '../systems/events';
 import { gameState, LEVEL } from '../systems/gameState';
 import { quests } from '../systems/quests';
 import { isTouchDevice } from '../systems/viewport';
-import type { District } from '../world/district';
-import { getDistrict } from '../world/districts';
-import type { Point } from '../world/grid';
+import type { District, Exit } from '../world/district';
+import { districtDef, districtsUnlockedBy, getDistrict } from '../world/districts';
+import { toTile, type Point } from '../world/grid';
 
 /** How close (px) the player must be to feed or pet a cat. */
 const INTERACT_RANGE = 24;
@@ -23,6 +23,10 @@ const FAST_FORWARD = 60;
 const AUTOSAVE_SECONDS = 10;
 /** Chance that a cat shows up in one of its phases (after the first meeting). */
 const PRESENCE_CHANCE = 0.85;
+const FADE_MS = 350;
+
+/** The controls hint is shown once per page load, not on every district change. */
+let controlsShown = false;
 
 interface Bowl {
   img: Phaser.GameObjects.Image;
@@ -53,6 +57,9 @@ export class GameScene extends Phaser.Scene {
   private pointerHeld = false;
   private repathTimer = 0;
   private stepBackHintShown = false;
+  /** Set once the player has stepped off every exit tile, so arriving next to an exit doesn't bounce them back. */
+  private exitArmed = false;
+  private travelling = false;
 
   constructor() {
     super('Game');
@@ -65,11 +72,17 @@ export class GameScene extends Phaser.Scene {
     this.lampGlows = [];
     this.windowLights = [];
     this.bowl = null;
+    this.menuCat = null;
+    this.approachCat = null;
+    this.promptKey = '';
+    this.pointerHeld = false;
+    this.exitArmed = false;
+    this.travelling = false;
 
     this.buildWorld();
 
-    const start = this.district.def.entries.start;
-    this.player = new Player(this, this.district.grid, start);
+    const entries = this.district.def.entries;
+    this.player = new Player(this, this.district.grid, entries[state.entry] ?? entries.start);
 
     this.cats = CATS.filter(
       (c) => c.district === this.district.def.id && (!c.requiresFlag || state.hasFlag(c.requiresFlag)),
@@ -88,8 +101,15 @@ export class GameScene extends Phaser.Scene {
     quests.start();
     emitGame({ type: 'area-entered', area: this.district.def.id });
 
-    this.scene.launch('Hud');
-    this.time.delayedCall(600, () => bus.emit(EV.TOAST, t(isTouchDevice() ? 'toast.controls.touch' : 'toast.controls')));
+    if (!this.scene.isActive('Hud')) this.scene.launch('Hud');
+    bus.emit(EV.PROMPT, null);
+    if (!controlsShown) {
+      controlsShown = true;
+      this.time.delayedCall(600, () => bus.emit(EV.TOAST, t(isTouchDevice() ? 'toast.controls.touch' : 'toast.controls')));
+    } else {
+      bus.emit(EV.TOAST, t(`district.${this.district.def.id}` as TextKey));
+    }
+    this.cameras.main.fadeIn(FADE_MS, 20, 16, 24);
 
     const save = () => gameState().save();
     const onHidden = () => document.visibilityState === 'hidden' && save();
@@ -146,6 +166,24 @@ export class GameScene extends Phaser.Scene {
           .setAlpha(0),
         offHour: hash < 3 ? -1 : 21 + (hash % 5), // -1: never lit
       });
+    }
+
+    for (const exit of d.def.exits) {
+      if (!exit.to) continue;
+      const c = { x: exit.x * TILE_SIZE + TILE_SIZE / 2, y: exit.y * TILE_SIZE + TILE_SIZE / 2 };
+      // Point outwards, towards the nearest map edge.
+      const angle =
+        exit.y <= 1 ? 0 : exit.y >= d.height - 2 ? Math.PI : exit.x <= 1 ? -Math.PI / 2 : Math.PI / 2;
+      const open = this.isOpen(exit);
+      const arrow = this.add
+        .image(c.x, c.y, 'exit-arrow')
+        .setRotation(angle)
+        .setDepth(c.y - 8)
+        .setAlpha(open ? 0.9 : 0.35);
+      const dx = Math.sin(angle) * 2;
+      const dy = -Math.cos(angle) * 2;
+      this.tweens.add({ targets: arrow, x: c.x + dx, y: c.y + dy, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      arrow.setData('exit', exit);
     }
 
     this.darkness = this.add
@@ -213,6 +251,7 @@ export class GameScene extends Phaser.Scene {
       [EV.SNEAK, (on: boolean) => (this.sneakToggle = on)],
       [EV.FAST, (on: boolean) => (this.fast = on)],
       [EV.PET_DONE, (result: PetResult, catId: string) => this.onPetDone(result, catId)],
+      [EV.GAME, (e: GameEvent) => this.onGameEvent(e)],
     ];
     for (const [ev, fn] of handlers) bus.on(ev, fn);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -223,6 +262,7 @@ export class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ loop
 
   update(_time: number, deltaMs: number): void {
+    if (this.travelling) return;
     const dt = Math.min(deltaMs, 100) / 1000;
     const state = gameState();
 
@@ -259,6 +299,7 @@ export class GameScene extends Phaser.Scene {
       if (d >= BOWL_DISTANCE) b.cat.goToBowl({ x: b.img.x, y: b.img.y });
     }
 
+    this.checkExit();
     this.updatePrompt();
     this.updateLighting();
 
@@ -460,6 +501,55 @@ export class GameScene extends Phaser.Scene {
   private toastLevel(cat: Cat): void {
     const level = gameState().cat(cat.def.id).level;
     bus.emit(EV.TOAST, t('toast.level', { name: cat.def.name, level: t(`level.${level}` as TextKey) }));
+  }
+
+  // ------------------------------------------------------------------ travel
+
+  private isOpen(exit: Exit): boolean {
+    const flag = exit.to && districtDef(exit.to.district).requiresFlag;
+    return !flag || gameState().hasFlag(flag);
+  }
+
+  /** Walking onto an exit that leads somewhere changes the district. */
+  private checkExit(): void {
+    const tile = toTile(this.player);
+    const exit = this.district.def.exits.find((e) => e.to && e.x === tile.x && e.y === tile.y);
+    if (!exit) {
+      this.exitArmed = true;
+      return;
+    }
+    if (!this.exitArmed) return;
+    this.exitArmed = false;
+    if (!this.isOpen(exit)) {
+      bus.emit(EV.TOAST, t('toast.locked', { place: t(`district.${exit.to!.district}` as TextKey) }));
+      return;
+    }
+    this.travel(exit.to!.district, exit.to!.entry);
+  }
+
+  private travel(district: string, entry: string): void {
+    this.travelling = true;
+    this.player.stop();
+    this.removeBowl();
+    bus.emit(EV.PROMPT, null);
+    const state = gameState();
+    state.travel(district, entry);
+    state.save();
+    const cam = this.cameras.main;
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.restart());
+    cam.fadeOut(FADE_MS, 20, 16, 24);
+  }
+
+  private onGameEvent(e: GameEvent): void {
+    if (e.type !== 'flag') return;
+    for (const d of districtsUnlockedBy(e.flag)) {
+      bus.emit(EV.TOAST, t('toast.unlocked', { place: t(`district.${d.id}` as TextKey) }));
+    }
+    // Exit arrows to newly opened districts light up.
+    for (const obj of this.children.list) {
+      const exit = obj.getData?.('exit') as Exit | undefined;
+      if (exit) (obj as Phaser.GameObjects.Image).setAlpha(this.isOpen(exit) ? 0.9 : 0.35);
+    }
   }
 
   // ------------------------------------------------------------------ helpers

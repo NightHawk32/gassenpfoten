@@ -29,8 +29,27 @@ export const TILE = {
   CHURCH_DOOR: 19,
   VENT: 20,
   ROOF_SLATE_EDGE: 21,
+  QUAY: 22,
+  MAUER: 23,
+  TOWER: 24,
+  TOWER_WINDOW: 25,
+  JETTY: 26,
+  BOAT_L: 27,
+  BOAT: 28,
+  BOAT_R: 29,
+  BRIDGE: 30,
+  PARAPET: 31,
+  PLASTER_A: 32,
+  PLASTER_B: 33,
+  PLASTER_C: 34,
+  PLASTER_WINDOW_A: 35,
+  PLASTER_WINDOW_B: 36,
+  PLASTER_WINDOW_C: 37,
 } as const;
-const TILE_COUNT = 22;
+const TILE_COUNT = 38;
+
+/** Pastel house fronts along the Neckar (A, B, C). */
+const PLASTER = ['#e8c87a', '#d9a0a0', '#a8c4b8'];
 
 type Ctx = CanvasRenderingContext2D;
 const S = TILE_SIZE;
@@ -183,6 +202,46 @@ function vent(ctx: Ctx): void {
   rect(ctx, '#7a7a84', 3, 4, 10, 1);
 }
 
+function plaster(ctx: Ctx, color: string): void {
+  rect(ctx, color, 0, 0, S, S);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+  ctx.fillRect(0, S - 2, S, 2);
+  ctx.fillRect(0, 0, 1, S);
+}
+
+/** Wooden planks running across the tile. */
+function planks(ctx: Ctx, base: string, dark: string, light: string): void {
+  rect(ctx, base, 0, 0, S, S);
+  for (let y = 0; y < S; y += 4) {
+    rect(ctx, dark, 0, y + 3, S, 1);
+    rect(ctx, light, 0, y, S, 1);
+    rect(ctx, dark, (y * 5) % S, y, 1, 3);
+  }
+}
+
+/** Stocherkahn (flat punt), drawn over water. `end` = which end is pointed. */
+function boat(ctx: Ctx, end: 'left' | 'right' | null): void {
+  water(ctx);
+  const hull = '#5a3a24';
+  const deck = '#9c6a3c';
+  let x0 = 0;
+  let x1 = S;
+  if (end === 'left') x0 = 3;
+  if (end === 'right') x1 = S - 3;
+  rect(ctx, hull, x0, 3, x1 - x0, 11);
+  rect(ctx, deck, x0 + (end === 'left' ? 1 : 0), 4, x1 - x0 - (end ? 1 : 0), 9);
+  for (let x = x0 + 3; x < x1 - 1; x += 4) rect(ctx, '#7e5230', x, 4, 1, 9);
+  if (end === 'left') rect(ctx, hull, 1, 6, 2, 5);
+  if (end === 'right') rect(ctx, hull, S - 3, 6, 2, 5);
+  rect(ctx, '#2a4e6a', 0, 14, S, 1);
+}
+
+function tower(ctx: Ctx): void {
+  rect(ctx, '#e6c25a', 0, 0, S, S);
+  rect(ctx, '#d0aa48', 0, 0, 2, S);
+  rect(ctx, '#f0d27a', S - 3, 0, 1, S);
+}
+
 /** Draws the tileset into a canvas texture called 'tiles' (one row of tiles). */
 export function registerTiles(scene: Phaser.Scene): void {
   if (scene.textures.exists('tiles')) return;
@@ -220,6 +279,46 @@ export function registerTiles(scene: Phaser.Scene): void {
     [TILE.CHURCH_WINDOW]: churchWindow,
     [TILE.CHURCH_DOOR]: churchDoor,
     [TILE.VENT]: vent,
+    [TILE.QUAY]: (c) => {
+      stone(c, '#b9a07a', '#9a8260', '#ccb690');
+      rect(c, '#8a7254', 0, S - 2, S, 2);
+    },
+    [TILE.MAUER]: (c) => {
+      stone(c, '#8f7a60', '#6e5c46', '#a28c70');
+      rect(c, '#4a6a5a', 0, S - 3, S, 3);
+    },
+    [TILE.TOWER]: tower,
+    [TILE.TOWER_WINDOW]: (c) => {
+      tower(c);
+      rect(c, '#5a4a38', 5, 3, 6, 10);
+      rect(c, '#2c3a4f', 6, 4, 4, 8);
+      rect(c, '#5a4a38', 7, 4, 2, 8);
+    },
+    [TILE.JETTY]: (c) => planks(c, '#8a6a48', '#5e4630', '#a6845c'),
+    [TILE.BOAT_L]: (c) => boat(c, 'left'),
+    [TILE.BOAT]: (c) => boat(c, null),
+    [TILE.BOAT_R]: (c) => boat(c, 'right'),
+    [TILE.BRIDGE]: (c) => stone(c, '#a89a88', '#8a7e6e', '#bcae9a'),
+    [TILE.PARAPET]: (c) => {
+      water(c);
+      stone(c, '#9a8a74', '#76685a', '#b4a48c');
+      rect(c, '#c4b49a', 0, 0, S, 2);
+    },
+    [TILE.PLASTER_A]: (c) => plaster(c, PLASTER[0]),
+    [TILE.PLASTER_B]: (c) => plaster(c, PLASTER[1]),
+    [TILE.PLASTER_C]: (c) => plaster(c, PLASTER[2]),
+    [TILE.PLASTER_WINDOW_A]: (c) => {
+      plaster(c, PLASTER[0]);
+      windowOn(c, '#f4ead4', '#2c3a4f');
+    },
+    [TILE.PLASTER_WINDOW_B]: (c) => {
+      plaster(c, PLASTER[1]);
+      windowOn(c, '#f4ead4', '#2c3a4f');
+    },
+    [TILE.PLASTER_WINDOW_C]: (c) => {
+      plaster(c, PLASTER[2]);
+      windowOn(c, '#f4ead4', '#2c3a4f');
+    },
   };
   for (let id = 0; id < TILE_COUNT; id++) {
     ctx.save();

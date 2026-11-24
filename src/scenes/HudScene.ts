@@ -177,7 +177,8 @@ export class HudScene extends Phaser.Scene {
 
   private updateClock(): void {
     const clock = gameState().clock;
-    this.clockText.setText(` ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} `);
+    const place = t(`district.${gameState().district}` as TextKey);
+    this.clockText.setText(` ${place} · ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} `);
   }
 
   // ------------------------------------------------------------------ prompt & objective
@@ -345,7 +346,12 @@ export class HudScene extends Phaser.Scene {
       } else {
         const list = (keys: string[], prefix: string) => keys.map((k) => t(`${prefix}.${k}` as TextKey)).join(', ');
         text(t(`cat.${cat.id}.quirk` as TextKey), 11, '#c9c3d6', indent);
-        text(t('journal.where', { spots: list(cat.spots, 'spot') }), 11, '#c9c3d6', indent);
+        text(
+          t('journal.where', { place: t(`district.${cat.district}` as TextKey), spots: list(cat.spots, 'spot') }),
+          11,
+          '#c9c3d6',
+          indent,
+        );
         text(t('journal.when', { phases: list(cat.phases, 'phase') }), 11, '#c9c3d6', indent);
         if (p.level >= LEVEL.FED) {
           text(t('journal.likes', { likes: list(cat.likes, 'item'), dislikes: list(cat.dislikes, 'item') }), 11, '#c9c3d6', indent);

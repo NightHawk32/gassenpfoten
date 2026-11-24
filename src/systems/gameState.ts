@@ -37,6 +37,8 @@ interface SaveData {
   version: number;
   minutes: number;
   district: string;
+  /** Named entry of the district where the player arrives on load. */
+  entry: string;
   cats: Record<string, CatProgress>;
   items: Record<string, number>;
   flags: string[];
@@ -54,6 +56,7 @@ function freshSave(): SaveData {
     version: SAVE_VERSION,
     minutes: START_MINUTES,
     district: START_DISTRICT,
+    entry: 'start',
     cats: {},
     items,
     flags: [],
@@ -87,8 +90,14 @@ export class GameState {
     return this.data.district;
   }
 
-  set district(id: string) {
-    this.data.district = id;
+  get entry(): string {
+    return this.data.entry;
+  }
+
+  /** Moves the player to another district; the next GameScene start places them at `entry`. */
+  travel(district: string, entry: string): void {
+    this.data.district = district;
+    this.data.entry = entry;
   }
 
   // ------------------------------------------------------------ cats

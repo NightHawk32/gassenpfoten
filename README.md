@@ -7,7 +7,7 @@ A calm, cozy browser game set in Tübingen: find, feed and pet the neighbourhood
 - 📄 Game concept: [docs/GAME_CONCEPT.md](docs/GAME_CONCEPT.md)
 - 🎨 Asset licences: [CREDITS.md](CREDITS.md)
 - 🧩 Adding items, areas, cats and quests: [docs/EXTENDING.md](docs/EXTENDING.md)
-- Status: **M1 – prototype**: the Marktplatz, 3 cats, feeding, petting, day/night, cat journal, first quests
+- Status: **M2 – vertical slice, in progress**: Marktplatz and Neckarfront (unlocked after the first quest), 5 cats, feeding, petting, day/night, cat journal, quests
 
 ## Development
 

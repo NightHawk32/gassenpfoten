@@ -28,5 +28,19 @@
       { "type": "item", "item": "dry", "amount": 3 },
       { "type": "flag", "flag": "professor-friend" }
     ]
+  },
+  {
+    "id": "river-cats",
+    "requires": ["first-friend"],
+    "requiresFlag": "tutorial-done",
+    "steps": [
+      { "id": "go", "event": "area-entered", "match": { "area": "neckarfront" } },
+      { "id": "poet", "event": "cat-seen", "match": { "cat": "hoelderlin" } },
+      { "id": "boat", "event": "cat-fed", "match": { "cat": "kahn" } }
+    ],
+    "rewards": [
+      { "type": "item", "item": "tuna", "amount": 3 },
+      { "type": "flag", "flag": "river-friend" }
+    ]
   }
 ]

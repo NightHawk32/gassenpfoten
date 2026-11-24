@@ -13,6 +13,9 @@ import { WorldGrid, type Point } from './grid';
  *   H Rathaus · h Rathaus window · A arcade · ~ water · o fountain rim
  *   s steps · c church roof · C church wall · i church window · d church door
  *   V vent (warm) · L street lamp · T tree · B bench
+ *   Neckar: m quay (Neckarmauer, walkable) · M river wall · Z plaster house
+ *   z plaster window · Y tower wall · y tower window · P tower roof
+ *   j jetty · K Stocherkahn (walkable) · b bridge deck · N bridge parapet
  */
 export interface Exit extends Point {
   /** Where this exit leads. Omitted = a dead end where cats come and go. */
@@ -46,7 +49,7 @@ export interface District {
   benches: Point[];
 }
 
-const WALKABLE = new Set(['.', 'g', 'A', 's', 'V']);
+const WALKABLE = new Set(['.', 'g', 'A', 's', 'V', 'm', 'j', 'K', 'b']);
 
 const BASE_TILE: Record<string, number> = {
   '#': TILE.VOID,
@@ -67,7 +70,29 @@ const BASE_TILE: Record<string, number> = {
   d: TILE.CHURCH_DOOR,
   V: TILE.VENT,
   T: TILE.GRASS,
+  m: TILE.QUAY,
+  M: TILE.MAUER,
+  Y: TILE.TOWER,
+  y: TILE.TOWER_WINDOW,
+  P: TILE.CHURCH_ROOF,
+  j: TILE.JETTY,
+  K: TILE.BOAT,
+  b: TILE.BRIDGE,
+  N: TILE.PARAPET,
 };
+
+const PLASTER_WALLS = [TILE.PLASTER_A, TILE.PLASTER_B, TILE.PLASTER_C];
+const PLASTER_WINDOWS = [TILE.PLASTER_WINDOW_A, TILE.PLASTER_WINDOW_B, TILE.PLASTER_WINDOW_C];
+
+/**
+ * Plaster houses cycle through three colours. A house is a run of Z/z in a
+ * row; give neighbouring houses a gap (another tile) so they count as two.
+ */
+function plasterColour(row: string, x: number): number {
+  let runs = 0;
+  for (let i = 0; i <= x; i++) if ('Zz'.includes(row[i]) && !'Zz'.includes(row[i - 1] ?? '')) runs++;
+  return (runs - 1) % 3;
+}
 
 const COBBLES = [TILE.COBBLE, TILE.COBBLE_2, TILE.COBBLE_3];
 
@@ -92,11 +117,15 @@ export function buildDistrict(def: DistrictDef): District {
       // Roof rows above a wall get a gutter edge.
       const below = map[y + 1]?.[x];
       if (ch === 'R' && below !== 'R') id = TILE.ROOF_EDGE;
-      if (ch === 'c' && below !== 'c') id = TILE.ROOF_SLATE_EDGE;
+      if ((ch === 'c' || ch === 'P') && below !== ch) id = TILE.ROOF_SLATE_EDGE;
+      if (ch === 'Z') id = PLASTER_WALLS[plasterColour(map[y], x)];
+      if (ch === 'z') id = PLASTER_WINDOWS[plasterColour(map[y], x)];
+      if (ch === 'K' && map[y][x - 1] !== 'K') id = TILE.BOAT_L;
+      else if (ch === 'K' && map[y][x + 1] !== 'K') id = TILE.BOAT_R;
       row.push(id);
 
       solid.push(!WALKABLE.has(ch));
-      if (ch === 'w' || ch === 'h' || ch === 'i') windows.push({ x, y });
+      if ('whizy'.includes(ch)) windows.push({ x, y });
       if (ch === 'L') lamps.push({ x, y });
       if (ch === 'T') trees.push({ x, y });
       if (ch === 'B') benches.push({ x, y });

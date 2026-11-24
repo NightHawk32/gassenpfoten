@@ -63,12 +63,14 @@ const CAT_WALK_2 = withRows(CAT_WALK_1, {
 /** Frame indices in every cat texture. */
 export const CAT_FRAME = { sit: 0, tail: 1, blink: 2, walk1: 3, walk2: 4 } as const;
 
-export type Coat = 'tuxedo' | 'brown-tabby' | 'grey-tabby' | 'orange';
+export type Coat = 'tuxedo' | 'brown-tabby' | 'grey-tabby' | 'silver' | 'white-spotted' | 'orange';
 
 export const COATS: Record<Coat, Palette> = {
   tuxedo: { a: '#121016', b: '#2b2932', d: '#2b2932', c: '#e08a96', e: '#d8d05a', f: '#f2eee6' },
   'brown-tabby': { a: '#2e1f17', b: '#a8744a', d: '#6e4529', c: '#e08a96', e: '#7fc46a', f: '#ecd8b8' },
   'grey-tabby': { a: '#26242a', b: '#8f8c94', d: '#55525c', c: '#d9909a', e: '#e0a840', f: '#d8d3cc' },
+  silver: { a: '#2e2c34', b: '#b4b0ba', d: '#c8c4cc', c: '#e0a0aa', e: '#6ab0d8', f: '#efedf2' },
+  'white-spotted': { a: '#2a2428', b: '#f0ebe2', d: '#3a3236', c: '#e89aa4', e: '#d8b048', f: '#ffffff' },
   orange: { a: '#3a1e10', b: '#e8873a', d: '#b85a1e', c: '#f0a0a0', e: '#9ad04a', f: '#f6dcb8' },
 };
 
@@ -226,6 +228,14 @@ export function registerSprites(scene: Phaser.Scene): void {
   for (const item of itemsOfCategory('treat')) {
     makePixelTexture(scene, `bowl-${item.id}`, [BOWL], { o: '#2a2a38', b: '#5a7ab0', f: item.color });
   }
+
+  // Arrow on exits that lead to another district (points up; rotated per exit).
+  makePixelTexture(
+    scene,
+    'exit-arrow',
+    [['...oo...', '..offo..', '.offffo.', 'offffffo', 'ooffffoo', '..offo..', '..offo..', '..oooo..']],
+    { o: '#2a2030', f: '#f2d8a7' },
+  );
 
   makePixelTexture(scene, 'lamp', [LAMP], { o: '#15121a', m: '#2e2a36', g: '#ffe9a8' });
 }

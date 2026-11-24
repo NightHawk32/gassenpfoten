@@ -57,12 +57,18 @@ because existing saves refer to it.
    same length. The build checks that every spot, exit and entry is walkable.
 2. Register it in `src/world/districts/index.ts`.
 3. Add `"spot.<name>"` for each spot to both language files.
-4. Connect districts through exits:
+4. Add `"district.<id>"` (the place name shown in the HUD and journal) to both
+   language files.
+5. Connect districts through exits:
    `{ x: 6, y: 28, to: { district: 'neckarfront', entry: 'from-marktplatz' } }`.
-   Use `requiresFlag` on the district to lock it until a quest unlocks it.
-   *Not wired up yet:* walking through an exit to change districts is the next
-   engine step. The data and the save (`state.district`) are ready for it.
-5. New tile types: add a tile id and a draw function in `src/art/tiles.ts`,
+   Walking onto such an exit fades to the other district and places the
+   player at the named entry; add the matching entry (and an exit back) on the
+   other side. Put entries a tile or two inside, not on the exit itself.
+   Exits with `to` get an arrow. Exits without `to` are alleys where cats come
+   and go. Use `requiresFlag` on the district to lock it until a quest sets the
+   flag: the arrow stays dim, walking there shows `toast.locked`, and setting
+   the flag announces the new place.
+6. New tile types: add a tile id and a draw function in `src/art/tiles.ts`,
    then a character in the legend in `district.ts`.
 
 ## Add a quest (mission or story arc)
