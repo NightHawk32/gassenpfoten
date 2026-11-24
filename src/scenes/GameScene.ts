@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../config';
 import { CAT_FRAME } from '../art/sprites';
-import { CATS, treatReaction } from '../data/cats';
+import { catActive, CATS, catSpots, treatReaction } from '../data/cats';
 import { Cat } from '../entities/Cat';
 import { Player } from '../entities/Player';
 import { t, type TextKey } from '../i18n/i18n';
@@ -10,7 +10,9 @@ import { bus, emitGame, EV, type GameEvent, type InteractPrompt, type PetResult 
 import { gameState, LEVEL } from '../systems/gameState';
 import { quests } from '../systems/quests';
 import { isTouchDevice } from '../systems/viewport';
+import type { Weather } from '../systems/weather';
 import type { District, Exit } from '../world/district';
+import { WeatherFx } from '../world/weatherFx';
 import { districtDef, districtsUnlockedBy, getDistrict } from '../world/districts';
 import { toTile, type Point } from '../world/grid';
 
@@ -20,6 +22,8 @@ const INTERACT_RANGE = 24;
 const BOWL_DISTANCE = 30;
 /** Cats count as "seen" within this distance (px). */
 const SEE_RANGE = 6 * TILE_SIZE;
+/** In fog you only spot cats that are close. */
+const SEE_RANGE_FOG = 3 * TILE_SIZE;
 const FAST_FORWARD = 60;
 const AUTOSAVE_SECONDS = 10;
 /** Chance that a cat shows up in one of its phases (after the first meeting). */
@@ -48,6 +52,8 @@ export class GameScene extends Phaser.Scene {
   private lampGlows: Phaser.GameObjects.Image[] = [];
   private windowLights: { pane: Phaser.GameObjects.Rectangle; glow: Phaser.GameObjects.Image; offHour: number }[] = [];
   private phase!: DayPhase;
+  private weather!: Weather;
+  private weatherFx!: WeatherFx;
   private fast = false;
   private sneakToggle = false;
   private saveTimer = 0;
@@ -89,11 +95,14 @@ export class GameScene extends Phaser.Scene {
       (c) => c.district === this.district.def.id && (!c.requiresFlag || state.hasFlag(c.requiresFlag)),
     ).map((def) => new Cat(this, def, this.district.grid, this.district.def.exits));
 
-    // Cats that belong to the current phase are already there when you arrive.
+    // Cats that belong to the current phase and weather are already there when you arrive.
     this.phase = state.clock.phase;
+    state.weather.update(state.clock.toJSON());
+    this.weather = state.weather.current;
     for (const cat of this.cats) {
-      if (cat.def.phases.includes(this.phase)) cat.appearAt(this.randomSpot(cat));
+      if (catActive(cat.def, this.phase, this.weather)) cat.appearAt(this.randomSpot(cat));
     }
+    this.weatherFx = new WeatherFx(this, this.district.width * TILE_SIZE, this.district.height * TILE_SIZE, this.weather);
 
     this.setupCamera();
     this.setupInput();
@@ -270,6 +279,8 @@ export class GameScene extends Phaser.Scene {
     const fast = this.fast || this.keys.T.isDown;
     state.clock.update(deltaMs * (fast ? FAST_FORWARD : 1));
     this.checkPhase();
+    this.checkWeather();
+    this.weatherFx.update(dt, this.weather);
     if (state.dailyRefill()) bus.emit(EV.TOAST, t('toast.refill'));
 
     this.repathTimer = Math.max(0, this.repathTimer - dt);
@@ -326,13 +337,35 @@ export class GameScene extends Phaser.Scene {
     this.phase = phase;
     emitGame({ type: 'phase', phase, day: clock.day });
 
+    this.updatePresence(null);
+  }
+
+  private checkWeather(): void {
+    const state = gameState();
+    if (!state.weather.update(state.clock.toJSON())) return;
+    const before = this.weather;
+    this.weather = state.weather.current;
+    emitGame({ type: 'weather', weather: this.weather });
+    bus.emit(EV.TOAST, t(`toast.weather.${this.weather}` as TextKey));
+    this.updatePresence(before);
+  }
+
+  /**
+   * After a change of phase or weather: cats leave, arrive, or move to their
+   * weather spot (e.g. under the arcades when it rains).
+   */
+  private updatePresence(weatherBefore: Weather | null): void {
     for (const cat of this.cats) {
-      const active = cat.def.phases.includes(phase);
+      const active = catActive(cat.def, this.phase, this.weather);
       if (cat.state === 'idle' && !active) {
         cat.leave(false);
       } else if (!cat.present && active) {
         const firstMeeting = gameState().cat(cat.def.id).level === LEVEL.UNKNOWN;
-        if (firstMeeting || Math.random() < PRESENCE_CHANCE) cat.arrive(this.randomSpot(cat));
+        const prefers = cat.def.weather?.prefers?.includes(this.weather);
+        if (firstMeeting || prefers || Math.random() < PRESENCE_CHANCE) cat.arrive(this.randomSpot(cat));
+      } else if (cat.state === 'idle' && weatherBefore) {
+        const old = catSpots(cat.def, weatherBefore).join();
+        if (old !== catSpots(cat.def, this.weather).join()) cat.moveTo(this.randomSpot(cat));
       }
     }
   }
@@ -341,7 +374,8 @@ export class GameScene extends Phaser.Scene {
     if (!cat.present || cat.state === 'fleeing') return;
     const state = gameState();
     if (state.cat(cat.def.id).level !== LEVEL.UNKNOWN) return;
-    if (this.distTo(cat) > SEE_RANGE || !this.cameras.main.worldView.contains(cat.x, cat.y)) return;
+    const range = this.weather === 'fog' ? SEE_RANGE_FOG : SEE_RANGE;
+    if (this.distTo(cat) > range || !this.cameras.main.worldView.contains(cat.x, cat.y)) return;
     state.raiseLevel(cat.def.id, LEVEL.SEEN);
     cat.showIcon('icon-question', 2);
     cat.emote(CAT_FRAME.curious, 2);
@@ -564,7 +598,7 @@ export class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ helpers
 
   private randomSpot(cat: Cat): Point {
-    const spots = cat.def.spots.flatMap((s) => this.district.def.spots[s] ?? []);
+    const spots = catSpots(cat.def, this.weather).flatMap((s) => this.district.def.spots[s] ?? []);
     if (!spots.length) throw new Error(`Cat "${cat.def.id}" has no spots in district "${this.district.def.id}"`);
     return Phaser.Utils.Array.GetRandom(spots);
   }
@@ -576,7 +610,8 @@ export class GameScene extends Phaser.Scene {
   private updateLighting(): void {
     const clock = gameState().clock;
     const light = daylight(clock.minuteOfDay);
-    this.darkness.setAlpha((1 - light) * 0.78);
+    const night = (1 - light) * 0.78;
+    this.darkness.setAlpha(Math.min(0.85, night + this.weatherFx.dimming * (1 - night)));
 
     const lamps = Phaser.Math.Clamp((0.65 - light) / 0.4, 0, 1);
     for (const g of this.lampGlows) g.setAlpha(lamps * 0.55);

@@ -104,5 +104,21 @@
   "quest.river-cats.title": "River cats",
   "quest.river-cats.go": "Take the southern alley down to the Neckarfront.",
   "quest.river-cats.poet": "They say a grey cat sits by the Hölderlinturm, gazing thoughtfully at the water.",
-  "quest.river-cats.boat": "Feed the cat that lives on the punts."
+  "quest.river-cats.boat": "Feed the cat that lives on the punts.",
+  "item.catnip": "Catnip",
+  "weather.sunny": "sun",
+  "weather.cloudy": "clouds",
+  "weather.rain": "rain",
+  "weather.fog": "fog",
+  "toast.weather.sunny": "The sun comes out. ☀️",
+  "toast.weather.cloudy": "Clouds are gathering. ☁️",
+  "toast.weather.rain": "It starts to rain. The cats look for somewhere dry. 🌧️",
+  "toast.weather.fog": "Fog rises from the Neckar. You can barely see your hand … 🌫️",
+  "journal.weather.prefers": "likes {list}",
+  "journal.weather.avoids": "avoids {list}",
+  "journal.weather.only": "only in {list}",
+  "journal.weather": "Weather: {text}",
+  "cat.lotte.quirk": "Three colours and proud of it. When it rains she sits under the arcades and watches the market.",
+  "cat.schatten.quirk": "All black and very shy. They say she only comes down to the river with the morning fog.",
+  "cat.socke.quirk": "Grey with white socks. Greets everyone who crosses the bridge."
 }

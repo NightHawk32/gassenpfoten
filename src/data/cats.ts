@@ -1,5 +1,6 @@
 import type { Coat } from '../art/sprites';
 import type { DayPhase } from '../systems/clock';
+import type { Weather } from '../systems/weather';
 import raw from './cats.json';
 
 /** Where a cat can be petted (concept §4.5). */
@@ -25,6 +26,19 @@ export interface CatDef {
   shyness: number;
   favourite: PetZone[];
   noGo: PetZone[];
+  /**
+   * Weather habits (concept §4.3). `only`: shows up only in this weather
+   * (fog cats); `avoids`: stays away; `prefers`: always comes out then.
+   * `spots` per weather replaces the normal spots, e.g. shelter from rain.
+   */
+  weather?: {
+    only?: Weather[];
+    avoids?: Weather[];
+    prefers?: Weather[];
+    spots?: Partial<Record<Weather, string[]>>;
+  };
+  /** Rote Bande member: can't be befriended, steals food (concept §4.7). */
+  bande?: boolean;
   /** Sprite size, 1 = normal. The Baron is bigger. */
   size?: number;
   /** Optional: only appears once this story flag is set (e.g. by a quest). */
@@ -37,6 +51,19 @@ export function catDef(id: string): CatDef {
   const def = CATS.find((c) => c.id === id);
   if (!def) throw new Error(`Unknown cat "${id}"`);
   return def;
+}
+
+/** Does the cat come out at this time of day and in this weather? */
+export function catActive(cat: CatDef, phase: DayPhase, weather: Weather): boolean {
+  if (!cat.phases.includes(phase)) return false;
+  const w = cat.weather;
+  if (w?.only && !w.only.includes(weather)) return false;
+  return !w?.avoids?.includes(weather);
+}
+
+/** Spot names the cat uses in this weather. */
+export function catSpots(cat: CatDef, weather: Weather): string[] {
+  return cat.weather?.spots?.[weather] ?? cat.spots;
 }
 
 export function treatReaction(cat: CatDef, item: string): 'liked' | 'neutral' | 'disliked' {

@@ -2,5 +2,6 @@
   { "id": "dry", "category": "treat", "color": "#8a5a32", "start": 3, "dailyRefill": 2 },
   { "id": "wet", "category": "treat", "color": "#b0574a", "start": 3, "dailyRefill": 2 },
   { "id": "chicken", "category": "treat", "color": "#e8d2a0", "start": 3, "dailyRefill": 2 },
-  { "id": "tuna", "category": "treat", "color": "#d88a8a", "start": 3, "dailyRefill": 2 }
+  { "id": "tuna", "category": "treat", "color": "#d88a8a", "start": 3, "dailyRefill": 2 },
+  { "id": "catnip", "category": "treat", "color": "#7ab05a", "start": 0, "dailyRefill": 0, "max": 3 }
 ]

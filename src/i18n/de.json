@@ -104,5 +104,21 @@
   "quest.river-cats.title": "Katzen am Fluss",
   "quest.river-cats.go": "Geh durch die Gasse im Süden hinunter zur Neckarfront.",
   "quest.river-cats.poet": "Am Hölderlinturm soll eine graue Katze sitzen, die nachdenklich aufs Wasser schaut.",
-  "quest.river-cats.boat": "Füttere die Katze, die auf den Stocherkähnen lebt."
+  "quest.river-cats.boat": "Füttere die Katze, die auf den Stocherkähnen lebt.",
+  "item.catnip": "Katzenminze",
+  "weather.sunny": "Sonne",
+  "weather.cloudy": "Wolken",
+  "weather.rain": "Regen",
+  "weather.fog": "Nebel",
+  "toast.weather.sunny": "Die Sonne kommt raus. ☀️",
+  "toast.weather.cloudy": "Wolken ziehen auf. ☁️",
+  "toast.weather.rain": "Es fängt an zu regnen. Die Katzen suchen sich ein trockenes Plätzchen. 🌧️",
+  "toast.weather.fog": "Nebel steigt vom Neckar auf. Man sieht kaum die Hand vor Augen … 🌫️",
+  "journal.weather.prefers": "mag {list}",
+  "journal.weather.avoids": "meidet {list}",
+  "journal.weather.only": "nur bei {list}",
+  "journal.weather": "Wetter: {text}",
+  "cat.lotte.quirk": "Dreifarbig und stolz darauf. Bei Regen sitzt sie unter den Arkaden und schaut dem Markt zu.",
+  "cat.schatten.quirk": "Ganz schwarz und sehr scheu. Man sagt, sie kommt nur mit dem Morgennebel an den Fluss.",
+  "cat.socke.quirk": "Grau mit weißen Söckchen. Begrüßt jeden, der über die Brücke kommt."
 }

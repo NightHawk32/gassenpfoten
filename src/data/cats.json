@@ -27,7 +27,14 @@
     ],
     "noGo": [
       "belly"
-    ]
+    ],
+    "weather": {
+      "spots": {
+        "rain": [
+          "rathaus-arcade"
+        ]
+      }
+    }
   },
   {
     "id": "brezel",
@@ -55,7 +62,12 @@
     "noGo": [
       "belly",
       "tail"
-    ]
+    ],
+    "weather": {
+      "prefers": [
+        "cloudy"
+      ]
+    }
   },
   {
     "id": "professor",
@@ -85,7 +97,17 @@
     "noGo": [
       "belly",
       "head"
-    ]
+    ],
+    "weather": {
+      "prefers": [
+        "rain"
+      ],
+      "spots": {
+        "rain": [
+          "rathaus-arcade"
+        ]
+      }
+    }
   },
   {
     "id": "hoelderlin",
@@ -113,7 +135,16 @@
     ],
     "noGo": [
       "belly"
-    ]
+    ],
+    "weather": {
+      "prefers": [
+        "sunny"
+      ],
+      "avoids": [
+        "rain",
+        "fog"
+      ]
+    }
   },
   {
     "id": "kahn",
@@ -143,6 +174,116 @@
     "noGo": [
       "tail",
       "belly"
-    ]
+    ],
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "id": "lotte",
+    "name": "Lotte",
+    "coat": "calico",
+    "district": "marktplatz",
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon"
+    ],
+    "spots": [
+      "fountain",
+      "church-garden"
+    ],
+    "likes": [
+      "wet"
+    ],
+    "dislikes": [
+      "tuna"
+    ],
+    "shyness": 2,
+    "favourite": [
+      "back",
+      "head"
+    ],
+    "noGo": [
+      "belly"
+    ],
+    "weather": {
+      "spots": {
+        "rain": [
+          "rathaus-arcade"
+        ]
+      }
+    }
+  },
+  {
+    "id": "schatten",
+    "name": "Schatten",
+    "coat": "black",
+    "district": "neckarfront",
+    "phases": [
+      "night",
+      "dawn",
+      "morning"
+    ],
+    "spots": [
+      "neckarmauer",
+      "riverside-doorsteps"
+    ],
+    "likes": [
+      "catnip"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 5,
+    "favourite": [
+      "cheeks"
+    ],
+    "noGo": [
+      "belly",
+      "tail",
+      "back"
+    ],
+    "weather": {
+      "only": [
+        "fog"
+      ]
+    }
+  },
+  {
+    "id": "socke",
+    "name": "Socke",
+    "coat": "grey-socks",
+    "district": "neckarfront",
+    "phases": [
+      "dawn",
+      "morning",
+      "midday"
+    ],
+    "spots": [
+      "eberhardsbruecke",
+      "riverside-doorsteps"
+    ],
+    "likes": [
+      "chicken"
+    ],
+    "dislikes": [
+      "tuna"
+    ],
+    "shyness": 1,
+    "favourite": [
+      "head",
+      "chin"
+    ],
+    "noGo": [
+      "belly"
+    ],
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    }
   }
 ]

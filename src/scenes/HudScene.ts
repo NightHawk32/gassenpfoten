@@ -7,9 +7,11 @@ import { bus, EV, type InteractPrompt } from '../systems/events';
 import { gameState, LEVEL } from '../systems/gameState';
 import { QUESTS, questTitle, quests, stepText } from '../systems/quests';
 import { isTouchDevice, pixelScale, uiScale } from '../systems/viewport';
+import type { Weather } from '../systems/weather';
 import { makeButton, toggleFullscreen, type Button } from '../ui/button';
 
 const TOAST_SECONDS = 4.5;
+const WEATHER_ICON: Record<Weather, string> = { sunny: '☀️', cloudy: '☁️', rain: '🌧️', fog: '🌫️' };
 const MAX_TOASTS = 3;
 
 /**
@@ -177,8 +179,13 @@ export class HudScene extends Phaser.Scene {
 
   private updateClock(): void {
     const clock = gameState().clock;
-    const place = t(`district.${gameState().district}` as TextKey);
-    this.clockText.setText(` ${place} · ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} `);
+    const state = gameState();
+    const place = t(`district.${state.district}` as TextKey);
+    const w = state.weather.current;
+    const icon = w === 'sunny' && clock.phase === 'night' ? '🌙' : WEATHER_ICON[w];
+    this.clockText.setText(
+      ` ${place} · ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} · ${icon} `,
+    );
   }
 
   // ------------------------------------------------------------------ prompt & objective
@@ -353,6 +360,10 @@ export class HudScene extends Phaser.Scene {
           indent,
         );
         text(t('journal.when', { phases: list(cat.phases, 'phase') }), 11, '#c9c3d6', indent);
+        const habits = (['only', 'prefers', 'avoids'] as const)
+          .filter((k) => cat.weather?.[k]?.length)
+          .map((k) => t(`journal.weather.${k}`, { list: list(cat.weather![k]!, 'weather') }));
+        if (habits.length) text(t('journal.weather', { text: habits.join(' · ') }), 11, '#c9c3d6', indent);
         if (p.level >= LEVEL.FED) {
           text(t('journal.likes', { likes: list(cat.likes, 'item'), dislikes: list(cat.dislikes, 'item') }), 11, '#c9c3d6', indent);
         }

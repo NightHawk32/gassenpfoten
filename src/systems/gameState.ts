@@ -5,6 +5,7 @@ import { START_DISTRICT } from '../world/districts';
 import { GameClock } from './clock';
 import { emitGame } from './events';
 import { storage } from './storage';
+import { freshWeather, WeatherModel, type WeatherData } from './weather';
 
 /**
  * Everything that is saved (concept §10): in-game time, current district,
@@ -44,6 +45,9 @@ interface SaveData {
   flags: string[];
   quests: Record<string, QuestProgress>;
   lastRefillDay: number;
+  weather: WeatherData;
+  /** Last day each NPC handed out their daily gift. */
+  npcGiftDay: Record<string, number>;
 }
 
 const SAVE_KEY = `save:v${SAVE_VERSION}`;
@@ -62,6 +66,8 @@ function freshSave(): SaveData {
     flags: [],
     quests: {},
     lastRefillDay: 1,
+    weather: freshWeather(START_MINUTES),
+    npcGiftDay: {},
   };
 }
 
@@ -69,16 +75,30 @@ function loadSave(): SaveData {
   const data = storage.get<Partial<SaveData> | null>(SAVE_KEY, null);
   const fresh = freshSave();
   if (!data || data.version !== SAVE_VERSION || typeof data.minutes !== 'number') return fresh;
-  return { ...fresh, ...data } as SaveData;
+  // Saves from before the weather existed start with fresh weather at their own time.
+  return { ...fresh, weather: freshWeather(data.minutes), ...data } as SaveData;
 }
 
 export class GameState {
   readonly clock: GameClock;
   private data: SaveData;
+  private weatherModel: WeatherModel;
 
   constructor() {
     this.data = loadSave();
     this.clock = new GameClock(this.data.minutes);
+    this.weatherModel = new WeatherModel(this.data.weather);
+  }
+
+  get weather(): WeatherModel {
+    return this.weatherModel;
+  }
+
+  /** True once per day per NPC: the first call of the day claims the gift. */
+  claimNpcGift(npc: string): boolean {
+    if ((this.data.npcGiftDay[npc] ?? 0) >= this.clock.day) return false;
+    this.data.npcGiftDay[npc] = this.clock.day;
+    return true;
   }
 
   get hasProgress(): boolean {
@@ -186,6 +206,7 @@ export class GameState {
     storage.remove(SAVE_KEY);
     this.data = freshSave();
     this.clock.set(this.data.minutes);
+    this.weatherModel = new WeatherModel(this.data.weather);
   }
 }
 

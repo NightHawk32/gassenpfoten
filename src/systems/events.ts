@@ -50,7 +50,11 @@ export type GameEvent =
   | { type: 'item-gained'; item: string; amount: number }
   | { type: 'area-entered'; area: string }
   | { type: 'phase'; phase: string; day: number }
-  | { type: 'flag'; flag: string };
+  | { type: 'flag'; flag: string }
+  | { type: 'weather'; weather: string }
+  | { type: 'npc-talked'; npc: string }
+  | { type: 'bande-stole'; cat: string; victim: string }
+  | { type: 'bande-distracted'; cat: string };
 
 export type GameEventType = GameEvent['type'];
 

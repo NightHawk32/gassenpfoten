@@ -106,6 +106,16 @@ export class Cat {
     this.walkTo(target, WALK_SPEED * 1.5, () => (this.state = 'idle'));
   }
 
+  /** Moves to a different spot in the district (e.g. shelter from the rain). */
+  moveTo(tile: Point): void {
+    const target = tileCenter(tile);
+    this.home = target;
+    this.restFrame = CAT_FRAME.sit;
+    this.emoteTimer = 0;
+    this.state = 'arriving';
+    this.walkTo(target, WALK_SPEED * 1.6, () => (this.state = 'idle'));
+  }
+
   /** Walks (or runs, if scared) to the nearest alley and disappears. */
   leave(scared: boolean): void {
     this.state = scared ? 'fleeing' : 'leaving';

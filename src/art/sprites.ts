@@ -237,6 +237,10 @@ export function registerSprites(scene: Phaser.Scene): void {
     makePixelTexture(scene, `bowl-${item.id}`, [BOWL], { o: '#2a2a38', b: '#5a7ab0', f: item.color });
   }
 
+  // Weather particles.
+  makePixelTexture(scene, 'raindrop', [['r', 'r', 'r', 'r', 'r']], { r: '#b8d4f0' });
+  makePixelTexture(scene, 'splash', [['.rr.', 'r..r']], { r: '#c8def4' });
+
   // Arrow on exits that lead to another district (points up; rotated per exit).
   makePixelTexture(
     scene,
