@@ -51,12 +51,19 @@ docs/                   design documents
 4. `localStorage` only through `src/systems/storage.ts` (keys are prefixed `gassenpfoten:`).
 5. Every new asset gets a line in `CREDITS.md`.
 
+## Branches
+
+- **`development`**: day-to-day work (default branch). Open pull requests against it.
+- **`main`**: releases. Merge `development` into `main` to publish a new version.
+
 ## Deployment (GitHub Pages)
 
-The workflow `.github/workflows/deploy.yml` builds on every push and pull request.
-The **deploy** step is switched off until Pages is available (a public repo, or a paid plan for private ones):
+The workflow `.github/workflows/deploy.yml` builds on every push to `development` or `main`
+and on every pull request. Only pushes to `main` deploy, to <https://nighthawk32.github.io/gassenpfoten/>.
 
-1. Make the repository public (*Settings → General → Danger Zone*). Check `CREDITS.md` first.
-2. *Settings → Pages → Build and deployment → Source:* **GitHub Actions**.
-3. *Settings → Secrets and variables → Actions → Variables:* add `PAGES_ENABLED` = `true`.
-4. Push to `main` or run the workflow manually → <https://nighthawk32.github.io/gassenpfoten/>
+To release: open a pull request from `development` into `main` and merge it
+(or run the workflow manually on `main`).
+
+The deploy step only runs while the repository variable `PAGES_ENABLED` is `true`
+(*Settings → Secrets and variables → Actions → Variables*); set it to anything else to pause deployments.
+Pages itself is configured under *Settings → Pages → Source: GitHub Actions*.
