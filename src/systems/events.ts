@@ -39,7 +39,7 @@ export const EV = {
 export interface InteractPrompt {
   targetId: string;
   name: string;
-  action: 'feed' | 'pet' | 'content' | 'talk' | 'bande' | 'distract';
+  action: 'feed' | 'pet' | 'content' | 'talk' | 'bande' | 'distract' | 'buffering' | 'follow' | 'stay';
 }
 
 export type PetResult = 'happy' | 'left' | 'cancel';
@@ -61,7 +61,13 @@ export type GameEvent =
   | { type: 'weather'; weather: string }
   | { type: 'npc-talked'; npc: string }
   | { type: 'bande-stole'; cat: string; victim: string }
-  | { type: 'bande-distracted'; cat: string };
+  | { type: 'bande-distracted'; cat: string }
+  /** The orange brain cell jumped between two cats in view (src/world/brainCell.ts). */
+  | { type: 'braincell-hop'; from: string; to: string }
+  /** The player took a closer look at an orange cat that froze mid-thought. */
+  | { type: 'braincell-observed'; cat: string }
+  /** A best friend started following the player. */
+  | { type: 'companion'; cat: string };
 
 export type GameEventType = GameEvent['type'];
 

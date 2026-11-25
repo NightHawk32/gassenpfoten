@@ -11,7 +11,7 @@
       "midday",
       "afternoon"
     ],
-    "greetings": 3,
+    "greetings": 5,
     "gift": {
       "item": "chicken",
       "amount": 1
@@ -35,7 +35,7 @@
       "evening",
       "night"
     ],
-    "greetings": 3,
+    "greetings": 5,
     "gift": {
       "item": "catnip",
       "amount": 1
@@ -46,6 +46,45 @@
       {
         "unlessFlag": "schatten-friend",
         "line": "schatten"
+      }
+    ]
+  },
+  {
+    "id": "palmer",
+    "name": "Boris Palmer",
+    "look": "palmer",
+    "district": "marktplatz",
+    "spot": "rathaus-arcade",
+    "roam": [
+      "rathaus-arcade",
+      "fountain",
+      "stiftskirche-steps",
+      "church-garden",
+      "bakery-vent",
+      "north-alley"
+    ],
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "greetings": 5,
+    "barks": 15,
+    "gift": {
+      "item": "yarn",
+      "amount": 1
+    },
+    "hints": "any",
+    "story": [
+      {
+        "unlessFlag": "braincell-proven",
+        "line": "intro"
+      },
+      {
+        "ifFlag": "braincell-proven",
+        "unlessFlag": "palmer-report",
+        "line": "report"
       }
     ]
   }

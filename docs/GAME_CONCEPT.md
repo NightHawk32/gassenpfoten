@@ -124,6 +124,7 @@ In this world, **orange cats are evil and mean**: in a funny, cozy way, never vi
   - avoiding them, since they have routines and routes you can learn;
   - help from certain NPCs (e.g. the market woman who knows their tricks);
   - sneaking: approaching quietly so they don't notice you.
+- **The one brain cell:** all orange cats share a single brain cell. Whoever holds it acts normally; the others sometimes freeze mid-step or stare at walls. A frozen Bande cat can't steal, which is the player's chance. The cell visibly hops between orange cats; the mayor wants it officially investigated.
 - **Decided: the Rote Bande stays mean, with one exception.** Late in the game a small orange kitten, **Klementine**, appears. At first everyone (players and NPCs) assumes it is part of the gang. In fact it was pushed out by the Bande for being too nice. Befriending Klementine is a late-game story arc, and NPCs react to it with surprise ("An orange one? That's friendly? Ha noi!"). Klementine is the only orange cat that can visit the home base.
 
 ### 4.8 Meeting people
@@ -133,6 +134,7 @@ NPCs make the town feel alive and serve as a **hint system**.
 |---|---|---|
 | **Frau Häberle**, retired, feeds the strays | Altstadt / Haaggasse | tutorial, knows every cat, sells home-cooked treats |
 | **Jonas**, student, philosophy, 14th semester | Neckarmauer, Stocherkahn | gives cryptic tips about night cats; dry humour |
+| **Boris Palmer**, mayor | roams the Marktplatz | odd and funny; mutters about red tape, measures sleeping cats, investigates the orange brain cell |
 | **Stocherkahn boatman** | Neckar, Hölderlinturm | ferry to the Neckarinsel, river cats |
 | **Baker** | near the Marktplatz | warm spot in winter, gives you a pretzel (*Brezel*); trades treats for errands |
 | **Pet shop owner** | Mühlstraße area | shop, upgrades (better bag, camera) |

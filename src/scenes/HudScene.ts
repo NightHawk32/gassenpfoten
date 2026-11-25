@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { catTextureKey } from '../art/sprites';
-import { CATS } from '../data/cats';
+import { CATS, isOrange } from '../data/cats';
+import { brainCellHolder } from '../world/brainCell';
 import { ITEMS, itemsOfCategory } from '../data/items';
 import { onLanguageChange, t, toggleLanguage, type TextKey } from '../i18n/i18n';
 import type { DialogueLine } from '../systems/dialogue';
@@ -208,7 +209,7 @@ export class HudScene extends Phaser.Scene {
     const p = this.prompt;
     if (!p) return '';
     const touch = isTouchDevice() ? '.touch' : '';
-    const plain = p.action === 'content' || p.action === 'bande';
+    const plain = p.action === 'content' || p.action === 'bande' || p.action === 'buffering';
     return t(`prompt.${p.action}${plain ? '' : touch}` as TextKey, { name: p.name });
   }
 
@@ -421,7 +422,8 @@ export class HudScene extends Phaser.Scene {
       const startY = y;
       const indent = iconSize + Math.round(10 * s);
       const hearts = '♥'.repeat(p.level) + '♡'.repeat(LEVEL.BEST_FRIEND - p.level);
-      const status = cat.bande ? t('journal.bande') : `${hearts}  ${t(`level.${p.level}` as TextKey)}`;
+      const along = state.companion === cat.id ? `  ${t('journal.companion')}` : '';
+      const status = cat.bande ? t('journal.bande') : `${hearts}  ${t(`level.${p.level}` as TextKey)}${along}`;
       text(`${known ? cat.name : '???'}   ${status}`, 14, cat.bande ? '#f0a060' : '#f2d8a7', indent);
       if (!known) {
         text(t('journal.unknown'), 11, '#c9c3d6', indent);
@@ -442,6 +444,7 @@ export class HudScene extends Phaser.Scene {
         if (p.level >= LEVEL.FED && !cat.bande) {
           text(t('journal.likes', { likes: list(cat.likes, 'item'), dislikes: list(cat.dislikes, 'item') }), 11, '#c9c3d6', indent);
         }
+        if (isOrange(cat)) text(t('journal.braincell', { holder: brainCellHolder() ?? t('braincell.nowhere') }), 11, '#f0a060', indent);
         if (p.knownSpots.length) text(t('journal.spots', { zones: list(p.knownSpots, 'zone') }), 11, '#c9c3d6', indent);
       }
       y = Math.max(y, startY + iconSize) + Math.round(10 * s);

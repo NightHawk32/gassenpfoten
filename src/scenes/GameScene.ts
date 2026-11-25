@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../config';
 import { CAT_FRAME } from '../art/sprites';
-import { catActive, CATS, catSpots, treatReaction } from '../data/cats';
+import { catActive, catDef, CATS, catSpots, treatReaction } from '../data/cats';
 import { Cat } from '../entities/Cat';
 import { Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
@@ -16,6 +16,7 @@ import { isTouchDevice } from '../systems/viewport';
 import type { Weather } from '../systems/weather';
 import type { District, Exit } from '../world/district';
 import { WeatherFx } from '../world/weatherFx';
+import { BrainCell, type BrainCellEvent } from '../world/brainCell';
 import { districtDef, districtsUnlockedBy, getDistrict } from '../world/districts';
 import { toTile, type Point } from '../world/grid';
 
@@ -55,6 +56,10 @@ const BANDE_SCARE = 2.5 * TILE_SIZE;
 /** Seconds a ball of yarn keeps a Bande cat busy. */
 const YARN_SECONDS = 45;
 const BANDE_PATROL: [number, number] = [8, 16];
+/** NPCs with `barks` mutter something now and then when the player is this close (px). */
+const BARK_RANGE = 7 * TILE_SIZE;
+const BARK_EVERY: [number, number] = [9, 16];
+const BUFFERING_LINES = 4;
 
 /**
  * The walkable world: one district with its cats, the player, the in-game
@@ -70,6 +75,8 @@ export class GameScene extends Phaser.Scene {
   /** Rote Bande: patrol timers and yarn balls they are playing with. */
   private patrol = new Map<Cat, number>();
   private yarn = new Map<Cat, { img: Phaser.GameObjects.Image; time: number }>();
+  private brainCell!: BrainCell;
+  private barks = new Map<Npc, { timer: number; last: number }>();
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private darkness!: Phaser.GameObjects.Rectangle;
   private lampGlows: Phaser.GameObjects.Image[] = [];
@@ -104,6 +111,7 @@ export class GameScene extends Phaser.Scene {
     this.approachNpc = null;
     this.patrol = new Map();
     this.yarn = new Map();
+    this.barks = new Map();
     this.lampGlows = [];
     this.windowLights = [];
     this.bowl = null;
@@ -127,13 +135,35 @@ export class GameScene extends Phaser.Scene {
     this.phase = state.clock.phase;
     state.weather.update(state.clock.toJSON());
     this.weather = state.weather.current;
+    // The best friend (and its inseparable partner) comes along from wherever it lives.
+    const companions = this.companionIds().map((id) => {
+      let cat = this.cats.find((c) => c.def.id === id);
+      if (!cat) {
+        cat = new Cat(this, catDef(id), this.district.grid, this.district.def.exits);
+        this.cats.push(cat);
+      }
+      return cat;
+    });
+    const near = toTile(this.player);
+    companions.forEach((cat, i) => {
+      cat.appearAt(this.besideTile(i ? this.besideTile(near) : near));
+      cat.companionOf = this.player;
+    });
+
     for (const cat of this.cats) {
-      if (catActive(cat.def, this.phase, this.weather)) cat.appearAt(this.randomSpot(cat));
+      if (cat.companionOf || this.leaderOf(cat) || !catActive(cat.def, this.phase, this.weather)) continue;
+      const spot = this.randomSpot(cat);
+      cat.appearAt(spot);
+      this.followerOf(cat)?.appearAt(this.besideTile(spot));
     }
+    this.brainCell = new BrainCell(this, this.cats, (e) => this.onBrainCell(e));
     this.npcs = NPCS.filter((n) => n.district === this.district.def.id).map((def) => {
-      const spot = this.district.def.spots[def.spot]?.[0];
-      if (!spot) throw new Error(`NPC "${def.id}": no spot "${def.spot}" in district "${this.district.def.id}"`);
-      const npc = new Npc(this, def, spot);
+      const spotOf = (name: string) => {
+        const spot = this.district.def.spots[name]?.[0];
+        if (!spot) throw new Error(`NPC "${def.id}": no spot "${name}" in district "${this.district.def.id}"`);
+        return spot;
+      };
+      const npc = new Npc(this, def, spotOf(def.spot), this.district.grid, (def.roam ?? []).map(spotOf));
       npc.setPresent(def.phases.includes(this.phase), true);
       return npc;
     });
@@ -307,7 +337,13 @@ export class GameScene extends Phaser.Scene {
       [EV.FAST, (on: boolean) => (this.fast = on)],
       [EV.PET_DONE, (result: PetResult, catId: string) => this.onPetDone(result, catId)],
       [EV.GAME, (e: GameEvent) => this.onGameEvent(e)],
-      [EV.DIALOGUE_DONE, () => (this.talking = false)],
+      [
+        EV.DIALOGUE_DONE,
+        () => {
+          this.talking = false;
+          for (const npc of this.npcs) npc.hold = false;
+        },
+      ],
     ];
     for (const [ev, fn] of handlers) bus.on(ev, fn);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -352,6 +388,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.updateBande(dt);
+    this.brainCell.update(dt);
 
     for (const cat of this.cats) {
       const event = cat.update(dt, this.player, state.cat(cat.def.id).level);
@@ -360,6 +397,8 @@ export class GameScene extends Phaser.Scene {
       if (event === 'gone') this.onGone(cat);
       this.checkSeen(cat);
     }
+    this.keepPairsTogether();
+    this.updateNpcs(dt);
 
     const b = this.bowl;
     if (b && b.cat.state === 'waiting') {
@@ -413,18 +452,137 @@ export class GameScene extends Phaser.Scene {
    */
   private updatePresence(weatherBefore: Weather | null): void {
     for (const cat of this.cats) {
+      // Followers (Fetzi) do whatever their leader (Puschi) does; companions stay with the player;
+      // ex-companions from other districts have nowhere to go here.
+      if (this.leaderOf(cat) || cat.companionOf || cat.def.district !== this.district.def.id) continue;
+      const follower = this.followerOf(cat);
       const active = catActive(cat.def, this.phase, this.weather);
       if (cat.state === 'idle' && !active) {
         cat.leave(false);
       } else if (!cat.present && active) {
         const firstMeeting = gameState().cat(cat.def.id).level === LEVEL.UNKNOWN;
         const prefers = cat.def.weather?.prefers?.includes(this.weather);
-        if (firstMeeting || prefers || Math.random() < PRESENCE_CHANCE) cat.arrive(this.randomSpot(cat));
+        if (firstMeeting || prefers || Math.random() < PRESENCE_CHANCE) {
+          const spot = this.randomSpot(cat);
+          cat.arrive(spot);
+          if (follower && !follower.present) follower.arrive(this.besideTile(spot));
+        }
       } else if (cat.state === 'idle' && weatherBefore) {
         const old = catSpots(cat.def, weatherBefore).join();
-        if (old !== catSpots(cat.def, this.weather).join()) cat.moveTo(this.randomSpot(cat));
+        if (old !== catSpots(cat.def, this.weather).join()) {
+          const spot = this.randomSpot(cat);
+          cat.moveTo(spot);
+          if (follower?.state === 'idle') follower.moveTo(this.besideTile(spot));
+        }
       }
     }
+  }
+
+  // ------------------------------------------------------------------ inseparable pairs (Puschi & Fetzi)
+
+  /** The cat this one follows, if it is in this district. */
+  private leaderOf(cat: Cat): Cat | undefined {
+    return cat.def.follows ? this.cats.find((c) => c.def.id === cat.def.follows) : undefined;
+  }
+
+  private followerOf(cat: Cat): Cat | undefined {
+    return this.cats.find((c) => c.def.follows === cat.def.id);
+  }
+
+  /** If one of a pair leaves (fed up, scared, bedtime …), the other goes along. */
+  private keepPairsTogether(): void {
+    const gone = (c: Cat) => c.state === 'absent' || c.state === 'leaving' || c.state === 'fleeing';
+    for (const follower of this.cats) {
+      const leader = this.leaderOf(follower);
+      if (!leader) continue;
+      if (gone(leader) && !gone(follower)) follower.leave(leader.state === 'fleeing');
+      else if (gone(follower) && !gone(leader)) leader.leave(follower.state === 'fleeing');
+    }
+  }
+
+  /** A walkable tile next to `tile`, so a pair sits side by side. */
+  private besideTile(tile: Point): Point {
+    const grid = this.district.grid;
+    const options = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    for (const [dx, dy] of options) {
+      if (!grid.isSolid(tile.x + dx, tile.y + dy)) return { x: tile.x + dx, y: tile.y + dy };
+    }
+    return tile;
+  }
+
+  // ------------------------------------------------------------------ companion (best friend following you)
+
+  /** The companion (only cats with `companion: true`) plus an inseparable partner, if it has one. */
+  private companionIds(): string[] {
+    const id = gameState().companion;
+    if (!id || !catDef(id).companion) return [];
+    const partner = catDef(id).follows ?? CATS.find((c) => c.follows === id)?.id;
+    return partner ? [id, partner] : [id];
+  }
+
+  private setCompanion(cat: Cat | null): void {
+    const state = gameState();
+    // The previous companion stays here (or wanders home if it lives elsewhere).
+    for (const old of this.cats.filter((c) => c.companionOf)) {
+      old.companionOf = null;
+      if (old.def.district !== this.district.def.id && old.state === 'idle') old.leave(false);
+    }
+    state.setCompanion(cat?.def.id ?? null);
+    if (!cat) return;
+    for (const id of this.companionIds()) {
+      const c = this.cats.find((x) => x.def.id === id);
+      if (c) c.companionOf = this.player;
+    }
+    cat.showIcon('icon-heart', 2);
+    cat.emote(CAT_FRAME.happy, 1.5);
+    emitGame({ type: 'companion', cat: cat.def.id });
+  }
+
+  // ------------------------------------------------------------------ people
+
+  private updateNpcs(dt: number): void {
+    for (const npc of this.npcs) {
+      npc.update(dt);
+      const count = npc.def.barks ?? 0;
+      if (!count || !npc.here || npc.hold || npc.muttering || this.talking) continue;
+      const bark = this.barks.get(npc) ?? { timer: 3, last: -1 };
+      this.barks.set(npc, bark);
+      bark.timer -= dt;
+      if (bark.timer > 0) continue;
+      bark.timer = Phaser.Math.FloatBetween(...BARK_EVERY);
+      if (this.distTo(npc) > BARK_RANGE || !this.cameras.main.worldView.contains(npc.x, npc.y)) continue;
+      let index = Phaser.Math.Between(0, count - 1);
+      if (index === bark.last && count > 1) index = (index + 1) % count;
+      bark.last = index;
+      npc.mutter(t(`npc.${npc.def.id}.bark.${index}` as TextKey));
+    }
+  }
+
+  // ------------------------------------------------------------------ the orange brain cell
+
+  private onBrainCell(e: BrainCellEvent): void {
+    const state = gameState();
+    if (e.type === 'hop') {
+      emitGame({ type: 'braincell-hop', from: e.from.def.id, to: e.to.def.id });
+      if (!state.hasFlag('braincell-seen')) {
+        state.setFlag('braincell-seen');
+        bus.emit(EV.TOAST, t('toast.braincell.first', { from: e.from.def.name, to: e.to.def.name }));
+      }
+    } else if (e.type === 'froze') {
+      if (this.bowl?.thief === e.cat) bus.emit(EV.TOAST, t('toast.braincell.thief', { name: e.cat.def.name }));
+    } else {
+      bus.emit(EV.TOAST, t('toast.braincell.outage'));
+    }
+  }
+
+  private observeFrozen(cat: Cat): void {
+    const holder = this.brainCell.current;
+    const line = Phaser.Math.Between(0, BUFFERING_LINES - 1);
+    bus.emit(
+      EV.TOAST,
+      t(`toast.buffering.${line}` as TextKey, { name: cat.def.name, holder: holder?.def.name ?? t('braincell.nowhere') }),
+    );
+    emitGame({ type: 'braincell-observed', cat: cat.def.id });
   }
 
   private checkSeen(cat: Cat): void {
@@ -466,8 +624,12 @@ export class GameScene extends Phaser.Scene {
   private actionFor(target: Target): InteractPrompt['action'] {
     if (target.kind === 'npc') return 'talk';
     const cat = target.cat;
+    if (cat.def.bande && cat.frozen) return 'buffering';
     if (cat.def.bande) return !this.yarn.has(cat) && gameState().itemCount('yarn') > 0 ? 'distract' : 'bande';
-    if (cat.pettedThisVisit) return 'content';
+    if (cat.pettedThisVisit) {
+      if (!cat.def.companion || gameState().cat(cat.def.id).level < LEVEL.BEST_FRIEND) return 'content';
+      return cat.companionOf ? 'stay' : 'follow';
+    }
     if (cat.fedThisVisit || gameState().cat(cat.def.id).level >= LEVEL.FRIEND) return 'pet';
     return 'feed';
   }
@@ -516,6 +678,17 @@ export class GameScene extends Phaser.Scene {
       case 'bande':
         bus.emit(EV.TOAST, t('toast.bande', { name: cat.def.name }));
         break;
+      case 'buffering':
+        this.observeFrozen(cat);
+        break;
+      case 'follow':
+        this.setCompanion(cat);
+        bus.emit(EV.TOAST, t('toast.follow', { name: cat.def.name }));
+        break;
+      case 'stay':
+        this.setCompanion(null);
+        bus.emit(EV.TOAST, t('toast.stay', { name: cat.def.name }));
+        break;
     }
   }
 
@@ -543,6 +716,7 @@ export class GameScene extends Phaser.Scene {
   private talkTo(npc: Npc): void {
     this.talking = true;
     this.player.stop();
+    npc.hold = true;
     npc.face(this.player);
     bus.emit(EV.PROMPT, null);
     this.promptKey = '';
@@ -570,12 +744,12 @@ export class GameScene extends Phaser.Scene {
 
       // Shy cats don't like the Bande around.
       for (const other of this.cats) {
-        if (other.def.bande || other.state !== 'idle' || other.def.shyness < 3) continue;
+        if (other.def.bande || other.companionOf || other.state !== 'idle' || other.def.shyness < 3) continue;
         if (Phaser.Math.Distance.Between(cat.x, cat.y, other.x, other.y) < BANDE_SCARE) other.alert += dt * 0.25;
       }
 
-      // Patrol between their spots.
-      if (cat.state !== 'idle') continue;
+      // Patrol between their spots (unless the brain cell is elsewhere).
+      if (cat.state !== 'idle' || cat.frozen) continue;
       const timer = (this.patrol.get(cat) ?? Phaser.Math.FloatBetween(...BANDE_PATROL)) - dt;
       this.patrol.set(cat, timer);
       if (timer <= 0) {
@@ -590,7 +764,7 @@ export class GameScene extends Phaser.Scene {
     let thief: Cat | null = null;
     let best = BANDE_SMELL;
     for (const cat of this.cats) {
-      if (!cat.def.bande || this.yarn.has(cat) || (cat.state !== 'idle' && cat.state !== 'arriving')) continue;
+      if (!cat.def.bande || cat.frozen || this.yarn.has(cat) || (cat.state !== 'idle' && cat.state !== 'arriving')) continue;
       const d = Phaser.Math.Distance.Between(cat.x, cat.y, bowl.img.x, bowl.img.y);
       if (d < best) {
         thief = cat;
@@ -679,7 +853,7 @@ export class GameScene extends Phaser.Scene {
     if (reaction === 'disliked') {
       bus.emit(EV.TOAST, t('toast.disliked', params));
       cat.emote(CAT_FRAME.annoyed, 1.2);
-      this.time.delayedCall(1200, () => cat.state === 'idle' && cat.leave(false));
+      this.time.delayedCall(1200, () => cat.state === 'idle' && !cat.companionOf && cat.leave(false));
     } else {
       cat.fedThisVisit = true;
       if (reaction === 'liked') {
@@ -725,7 +899,7 @@ export class GameScene extends Phaser.Scene {
       if (state.raiseLevel(catId, LEVEL.FRIEND)) this.toastLevel(cat);
       if (state.addBond(catId, 2)) this.toastLevel(cat);
       emitGame({ type: 'cat-petted', cat: catId });
-    } else if (result === 'left') {
+    } else if (result === 'left' && !cat.companionOf) {
       cat.leave(false);
     } else {
       cat.state = 'idle';
@@ -734,8 +908,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private toastLevel(cat: Cat): void {
-    const level = gameState().cat(cat.def.id).level;
+    const state = gameState();
+    const level = state.cat(cat.def.id).level;
     bus.emit(EV.TOAST, t('toast.level', { name: cat.def.name, level: t(`level.${level}` as TextKey) }));
+    // Bello, once a best friend, comes along.
+    if (level >= LEVEL.BEST_FRIEND && cat.def.companion && !state.companion) {
+      this.setCompanion(cat);
+      bus.emit(EV.TOAST, t('toast.bestFriend', { name: cat.def.name }));
+    }
   }
 
   // ------------------------------------------------------------------ travel
