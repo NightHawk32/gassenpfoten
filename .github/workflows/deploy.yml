@@ -1,13 +1,13 @@
 name: Build & Deploy
 
-# build:  runs on every push and pull request; it is the "does it still build?" check.
-# deploy: publishes to GitHub Pages, but only on main and only once the repository
-#         variable PAGES_ENABLED is set to "true" (see README → Deployment).
-#         Until then the deploy job is skipped, so the private repo stays green.
+# build:  runs on pushes to development and main, and on every pull request;
+#         it is the "does it still build?" check.
+# deploy: publishes to GitHub Pages, only on main (the release branch) and only while
+#         the repository variable PAGES_ENABLED is "true" (see README → Deployment).
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
   pull_request:
   workflow_dispatch:
 
