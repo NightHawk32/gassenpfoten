@@ -23,6 +23,13 @@ export type CatEvent = 'fled' | 'ate' | 'gone' | null;
 const WALK_SPEED = 18;
 const FLEE_SPEED = 80;
 const EAT_TIME = 2.6;
+/** Companion (best friend following the player): starts walking when further than this (px), stops when this close. */
+const FOLLOW_START = 36;
+const FOLLOW_STOP = 20;
+/** Trots to catch up when far behind; teleports (comes running from an alley) when hopelessly lost. */
+const FOLLOW_SPEED = 46;
+const FOLLOW_CATCH_UP = 64;
+const FOLLOW_LOST = 14 * 16;
 
 /** Frames that are a resting pose rather than a short gesture. */
 const RESTING: number[] = [CAT_FRAME.loaf, CAT_FRAME.sleep];
@@ -49,6 +56,11 @@ export class Cat {
   private restFrame: number = CAT_FRAME.sit;
   /** A gesture or mood (happy, annoyed …) that overrides the idle pose for a while. */
   private emoteTimer = 0;
+  /** Orange cats without the brain cell sometimes just … stop (src/world/brainCell.ts). */
+  private frozenTimer = 0;
+  /** Set while the cat is the player's companion: it follows them everywhere. */
+  companionOf: Player | null = null;
+  private followTimer = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -79,6 +91,30 @@ export class Cat {
 
   get present(): boolean {
     return this.state !== 'absent';
+  }
+
+  /** Stuck mid-thought (or mid-step) because the brain cell is elsewhere. */
+  get frozen(): boolean {
+    return this.frozenTimer > 0;
+  }
+
+  /** Stops dead for a while: no walking, no gestures, just a blank stare. */
+  freeze(seconds: number): void {
+    if (this.state === 'absent' || this.state === 'petting' || this.state === 'leaving' || this.state === 'fleeing') return;
+    this.frozenTimer = Math.max(this.frozenTimer, seconds);
+    this.sprite.anims.pause();
+    // Sitting cats stare into the void; walking ones freeze mid-step.
+    if (!this.path.length && this.state !== 'eating') this.sprite.setFrame(CAT_FRAME.curious);
+    this.icon.setTexture('icon-buffer').setVisible(true);
+    this.iconTimer = 0;
+  }
+
+  unfreeze(): void {
+    if (!this.frozen) return;
+    this.frozenTimer = 0;
+    this.sprite.anims.resume();
+    this.icon.setVisible(false);
+    if (!this.path.length && this.state !== 'eating') this.sprite.setFrame(this.restFrame);
   }
 
   /** Can the player interact with the cat right now? */
@@ -118,6 +154,7 @@ export class Cat {
 
   /** Walks (or runs, if scared) to the nearest alley and disappears. */
   leave(scared: boolean): void {
+    this.unfreeze();
     this.state = scared ? 'fleeing' : 'leaving';
     if (scared) this.showIcon('icon-alert', 1.2);
     const exit = tileCenter(this.nearestExit(this.sprite));
@@ -153,8 +190,21 @@ export class Cat {
     if (this.state === 'absent') return null;
     let event: CatEvent = null;
 
+    if (this.frozenTimer > 0) {
+      this.frozenTimer -= dt;
+      if (this.frozenTimer > 0) {
+        this.icon.setPosition(Math.round(this.x), Math.round(this.y - 15 * this.size));
+        return null;
+      }
+      this.frozenTimer = 1e-6; // let unfreeze() do the clean-up
+      this.unfreeze();
+    }
+
+    if (this.companionOf) this.follow(dt, this.companionOf);
+
     // Noticing the player: movement close by makes the cat nervous (concept §4.1 shyness).
-    if (this.state === 'idle' || this.state === 'waiting' || this.state === 'toBowl' || this.state === 'eating') {
+    // A companion trusts the player completely.
+    if (!this.companionOf && (this.state === 'idle' || this.state === 'waiting' || this.state === 'toBowl' || this.state === 'eating')) {
       const radius = (1.5 + this.def.shyness) * 16;
       const d = Phaser.Math.Distance.Between(player.x, player.y, this.x, this.y);
       if (player.moving && d < radius) {
@@ -229,7 +279,7 @@ export class Cat {
 
   /** Shows a mood for a while (happy after a favourite treat, annoyed after a bad one …). */
   emote(frame: number, seconds: number): void {
-    if (this.path.length) return;
+    if (this.path.length || this.frozen) return;
     this.sprite.anims.stop();
     this.sprite.setFrame(frame);
     this.emoteTimer = seconds;
@@ -274,12 +324,13 @@ export class Cat {
     }
 
     const roll = Math.random();
-    if (roll < 0.25) this.emote(CAT_FRAME.tail, 0.6);
+    if (this.companionOf && roll < 0.35) this.emote(roll < 0.1 ? CAT_FRAME.happy : CAT_FRAME.tail, 0.8);
+    else if (roll < 0.25) this.emote(CAT_FRAME.tail, 0.6);
     else if (roll < 0.45) this.emote(CAT_FRAME.blink, 0.25);
     else if (roll < 0.6) this.emote(CAT_FRAME.groom, 1.6);
     else if (roll < 0.66) this.emote(CAT_FRAME.meow, 0.7);
     else if (roll < 0.78 && this.state === 'idle') this.rest(false);
-    else if (this.state === 'idle') {
+    else if (this.state === 'idle' && !this.companionOf) {
       // Stretch the legs a little around the home spot.
       const home = toTile(this.home);
       const target = this.grid.nearestWalkable({
@@ -288,6 +339,37 @@ export class Cat {
       });
       if (target) this.walkTo(tileCenter(target), WALK_SPEED);
     }
+  }
+
+  /** Companion: keep up with the player, then sit down nearby. */
+  private follow(dt: number, player: Player): void {
+    if (this.state !== 'idle') return;
+    const d = Phaser.Math.Distance.Between(player.x, player.y, this.x, this.y);
+    if (this.path.length && d <= FOLLOW_STOP) {
+      // Close enough: stop and sit next to them.
+      this.path = [];
+      this.afterWalk = null;
+      this.sprite.anims.stop();
+      this.restFrame = CAT_FRAME.sit;
+      this.sprite.setFrame(CAT_FRAME.sit);
+      this.home = { x: this.x, y: this.y };
+      return;
+    }
+    if (d > FOLLOW_LOST) {
+      // Lost: pops out next to the player again.
+      const tile = this.grid.nearestWalkable(toTile(player));
+      if (tile) this.sprite.setPosition(tileCenter(tile).x + 6, tileCenter(tile).y);
+      this.path = [];
+      return;
+    }
+    this.followTimer -= dt;
+    if (d <= FOLLOW_START || this.followTimer > 0) return;
+    this.followTimer = 0.4;
+    this.emoteTimer = 0;
+    this.restFrame = CAT_FRAME.sit;
+    this.walkTo({ x: player.x, y: player.y }, d > 4 * 16 ? FOLLOW_CATCH_UP : FOLLOW_SPEED, () => {
+      this.home = { x: this.x, y: this.y };
+    });
   }
 
   private walkTo(target: Point, speed: number, then?: () => void): void {

@@ -22,6 +22,9 @@ export type Coat =
   | 'black'
   | 'calico'
   | 'grey-socks'
+  | 'cream-longhair'
+  | 'taupe-spotted'
+  | 'maine-coon'
   | 'orange';
 
 /** Orange is reserved for the Rote Bande (concept §4.7). */
@@ -57,6 +60,21 @@ export const COATS: Record<Coat, { look: CatLook; palette: Palette }> = {
   'grey-socks': {
     look: { pattern: 'socks' },
     palette: catPalette({ fur: '#6e7080', shadow: '#555766', light: '#868898', pattern: '#6e7080', eyes: '#e8c048' }),
+  },
+  // Puschi: a fluffy cream cloud.
+  'cream-longhair': {
+    look: { pattern: 'plain', longhair: true },
+    palette: catPalette({ fur: '#ead7b4', shadow: '#cdb48c', light: '#f8ead0', pattern: '#dcc39a', eyes: '#78b8e0', white: '#fff8ec' }),
+  },
+  // Fetzi: scruffy taupe with dark patches.
+  'taupe-spotted': {
+    look: { pattern: 'spots' },
+    palette: catPalette({ fur: '#9a8676', shadow: '#7a685a', light: '#b29e8e', pattern: '#3e3430', eyes: '#9ad06a', white: '#efe6da' }),
+  },
+  // Bello: a big brown Maine Coon with a ruff and a bushy tail.
+  'maine-coon': {
+    look: { pattern: 'tabby', longhair: true },
+    palette: catPalette({ fur: '#8a6a4e', shadow: '#6a4e38', light: '#a8866a', pattern: '#3e2a1e', eyes: '#e0b040', white: '#efe2cc' }),
   },
   orange: {
     look: { pattern: 'tabby', mean: true },
@@ -172,6 +190,17 @@ const NPC_LOOKS: Record<string, { patch: Record<number, string>; palette: Palett
     },
     palette: { ...PLAYER_PALETTE, h: '#6a4a2a', w: '#b8443a', j: '#3e5a4a', p: '#3a3a48', b: '#2a2430' },
   },
+  // Boris Palmer: short dark hair, glasses, grey suit, tie and the golden chain of office.
+  palmer: {
+    patch: {
+      4: '....ogeggego....',
+      6: '.....owrrwo.....',
+      7: '....ojkrrkjo....',
+      8: '...ojjkrrkjjo...',
+      9: '...ojjjkkjjjo...',
+    },
+    palette: { ...PLAYER_PALETTE, h: '#2e2622', g: '#4a4a5a', w: '#f4f2ee', r: '#3e5f8e', k: '#e8c050', j: '#56565f', p: '#3a3a44', b: '#1e1a20' },
+  },
 };
 
 // ---------------------------------------------------------------- icons (8×8)
@@ -191,6 +220,16 @@ const ICONS: Record<string, { rows: string[]; palette: Palette }> = {
   'icon-question': {
     palette: { q: '#bfe3ff' },
     rows: ['..qqqq..', '.qq..qq.', '.....qq.', '....qq..', '...qq...', '........', '...qq...', '........'],
+  },
+  // An orange cat without the brain cell: still loading …
+  'icon-buffer': {
+    palette: { o: '#3a2a10', x: '#f4a45a' },
+    rows: ['........', '........', '........', 'oo.oo.oo', 'xo.xo.xo', 'oo.oo.oo', '........', '........'],
+  },
+  // An orange cat that just received the brain cell.
+  'icon-idea': {
+    palette: { y: '#ffe680', o: '#3a2a10', l: '#fffbe0' },
+    rows: ['..oooo..', '.oylyyo.', '.oylyyo.', '.oyyyyo.', '..oyyo..', '..oooo..', '..oooo..', '........'],
   },
   'icon-zzz': {
     palette: { z: '#c9c3e6' },
@@ -267,8 +306,13 @@ export function registerSprites(scene: Phaser.Scene): void {
   for (const [look, { patch, palette }] of Object.entries(NPC_LOOKS)) {
     // Patches meant for the front also apply to the back and side where the row exists.
     const sidePatch = Object.fromEntries(Object.entries(patch).filter(([row]) => Number(row) <= 2));
-    makePixelTexture(scene, `npc-${look}`, [withRows(P_FRONT, patch), withRows(P_BACK, patch), withRows(P_SIDE, sidePatch)], palette);
+    // The face (rows 3–5) is not seen from behind.
+    const backPatch = Object.fromEntries(Object.entries(patch).filter(([row]) => Number(row) < 3 || Number(row) > 5));
+    makePixelTexture(scene, `npc-${look}`, [withRows(P_FRONT, patch), withRows(P_BACK, backPatch), withRows(P_SIDE, sidePatch)], palette);
   }
+
+  // The one brain cell all orange cats share (a tiny pink brain).
+  makePixelTexture(scene, 'braincell', [['.pp.', 'plpp', 'pppp', '.pp.']], { p: '#f29ab0', l: '#ffd8e2' });
 
   // Ball of yarn (decoy toy against the Rote Bande).
   makePixelTexture(

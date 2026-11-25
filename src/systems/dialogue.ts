@@ -64,6 +64,7 @@ export function talk(npc: NpcDef): DialogueLine[] {
     lines.push(added ? t('npc.gift', { amount: added, item: item(npc.gift.item) }) : t('npc.giftFull', { item: item(npc.gift.item) }));
   }
   for (const story of npc.story ?? []) {
+    if (story.ifFlag && !state.hasFlag(story.ifFlag)) continue;
     if (!state.hasFlag(story.unlessFlag)) lines.push(t(`npc.${npc.id}.${story.line}` as TextKey));
   }
   const h = hint(npc);

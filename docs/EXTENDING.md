@@ -63,6 +63,25 @@ because existing saves refer to it.
 4. A Rote Bande member gets `"bande": true` (and `"shyness": 0`). It can't be
    fed or petted, patrols its spots, steals bowls it can smell and is
    distracted by `toy` items (the ball of yarn). `"size": 1.35` makes it bigger.
+5. Inseparable pairs: `"follows": "puschi"` makes a cat arrive, move, leave
+   and flee together with that cat (same district), sitting next to it.
+   The leader's phases and weather decide; give the follower the same values
+   so the journal shows them correctly.
+6. `"companion": true` marks the one cat that follows the player once it is a
+   best friend (Bello, a dog-like Maine Coon). It comes along across districts
+   and ignores its schedule while following; after petting it, E toggles
+   "take along" / "let stay". The choice is saved (`companion` in the save).
+
+### The orange brain cell 🍊🧠
+
+Every cat with the `orange` coat shares one brain cell
+(`src/world/brainCell.ts`). The cat holding it behaves normally; the others
+now and then freeze for a few seconds (a `…` icon, no walking, no patrolling,
+no stealing). Every 7–15 s the cell hops to another orange cat (a small pink
+brain flies across) or leaves the district. Very rarely all orange cats freeze
+at once ("day trip to Reutlingen"). Interacting with a frozen Bande cat shows a
+"loading" message. The journal shows who has the cell right now. A new
+orange cat needs nothing extra to take part.
 
 ## Add a person (NPC)
 
@@ -87,7 +106,12 @@ Add an entry to `src/data/npcs.json`:
   about a cat you haven't befriended (`hints`: `any` or `night` cats) and, with
   `forecast`, the coming weather.
 - Talking emits `npc-talked {npc}`, so a quest can say "talk to …" and set the
-  flag that ends a story line.
+  flag that ends a story line. A story line with `"ifFlag"` is only said once
+  that flag is set, e.g. a "report back" line between two quests.
+- `"roam": ["fountain", "rathaus-arcade", …]` makes the NPC stroll between the
+  first tiles of these spots instead of standing still (Boris Palmer).
+- `"barks": 14` lets the NPC mutter `npc.<id>.bark.0 … 13` in a small bubble
+  every 9–16 s while the player is nearby.
 
 ## Add a district (area)
 
@@ -143,7 +167,9 @@ Add an entry to `src/data/quests.json`:
 `cat-seen {cat}`, `cat-fed {cat, item, reaction}`, `cat-petted {cat}`,
 `cat-level {cat, level}`, `item-gained {item, amount}`, `area-entered {area}`,
 `phase {phase, day}`, `flag {flag}`, `weather {weather}`, `npc-talked {npc}`,
-`bande-stole {cat, victim}`, `bande-distracted {cat}`.
+`bande-stole {cat, victim}`, `bande-distracted {cat}`,
+`braincell-hop {from, to}` (seen on screen), `braincell-observed {cat}`
+(the player looked at a frozen orange cat), `companion {cat}` (Bello started following).
 
 New mechanics such as photo mode add an event
 type there and emit it with `emitGame(...)`. Quests can then use it

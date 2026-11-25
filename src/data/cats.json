@@ -344,5 +344,142 @@
         "rain"
       ]
     }
+  },
+  {
+    "id": "puschi",
+    "name": "Puschi",
+    "coat": "cream-longhair",
+    "district": "neckarfront",
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "hoelderlin-garden",
+      "riverside-doorsteps"
+    ],
+    "likes": [
+      "chicken"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 2,
+    "favourite": [
+      "cheeks",
+      "back"
+    ],
+    "noGo": [
+      "belly",
+      "tail"
+    ],
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "id": "fetzi",
+    "name": "Fetzi",
+    "coat": "taupe-spotted",
+    "district": "neckarfront",
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "hoelderlin-garden",
+      "riverside-doorsteps"
+    ],
+    "likes": [
+      "tuna",
+      "catnip"
+    ],
+    "dislikes": [
+      "wet"
+    ],
+    "shyness": 1,
+    "favourite": [
+      "belly",
+      "chin"
+    ],
+    "noGo": [
+      "head"
+    ],
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    },
+    "follows": "puschi"
+  },
+  {
+    "id": "kuerbis",
+    "name": "Kürbis",
+    "coat": "orange",
+    "district": "marktplatz",
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "fountain",
+      "stiftskirche-steps",
+      "church-garden",
+      "south-alley"
+    ],
+    "likes": [],
+    "dislikes": [],
+    "shyness": 0,
+    "favourite": [],
+    "noGo": [],
+    "bande": true,
+    "size": 0.9,
+    "requiresFlag": "knows-bande",
+    "weather": {
+      "avoids": [
+        "rain"
+      ]
+    }
+  },
+  {
+    "id": "bello",
+    "name": "Bello",
+    "coat": "maine-coon",
+    "district": "marktplatz",
+    "phases": [
+      "morning",
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "church-garden",
+      "stiftskirche-steps"
+    ],
+    "likes": [
+      "chicken"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 1,
+    "favourite": [
+      "belly",
+      "head"
+    ],
+    "noGo": [
+      "tail"
+    ],
+    "size": 1.25,
+    "requiresFlag": "tutorial-done",
+    "companion": true
   }
 ]

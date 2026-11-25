@@ -48,6 +48,8 @@ interface SaveData {
   weather: WeatherData;
   /** Last day each NPC handed out their daily gift. */
   npcGiftDay: Record<string, number>;
+  /** The best friend currently following the player around (cat id), if any. */
+  companion: string | null;
 }
 
 const SAVE_KEY = `save:v${SAVE_VERSION}`;
@@ -68,6 +70,7 @@ function freshSave(): SaveData {
     lastRefillDay: 1,
     weather: freshWeather(START_MINUTES),
     npcGiftDay: {},
+    companion: null,
   };
 }
 
@@ -139,6 +142,16 @@ export class GameState {
     const c = this.cat(id);
     c.bond += points;
     return c.level >= LEVEL.FRIEND && c.bond >= BEST_FRIEND_BOND && this.raiseLevel(id, LEVEL.BEST_FRIEND);
+  }
+
+  /** The best friend following the player, or null. Only best friends can come along. */
+  get companion(): string | null {
+    const id = this.data.companion;
+    return id && this.cat(id).level >= LEVEL.BEST_FRIEND ? id : null;
+  }
+
+  setCompanion(id: string | null): void {
+    this.data.companion = id;
   }
 
   learnSpot(id: string, zone: PetZone): boolean {

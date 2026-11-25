@@ -43,6 +43,14 @@ export interface CatDef {
   size?: number;
   /** Optional: only appears once this story flag is set (e.g. by a quest). */
   requiresFlag?: string;
+  /**
+   * Inseparable: this cat comes, goes, moves and flees together with the cat
+   * with this id (same district). Its own phases and weather are only shown
+   * in the journal; the leader decides.
+   */
+  follows?: string;
+  /** The one cat that follows the player around once it is a best friend (Bello, the Maine Coon). */
+  companion?: boolean;
 }
 
 export const CATS: CatDef[] = raw as CatDef[];
@@ -64,6 +72,11 @@ export function catActive(cat: CatDef, phase: DayPhase, weather: Weather): boole
 /** Spot names the cat uses in this weather. */
 export function catSpots(cat: CatDef, weather: Weather): string[] {
   return cat.weather?.spots?.[weather] ?? cat.spots;
+}
+
+/** Orange cats share a single brain cell (see src/world/brainCell.ts). */
+export function isOrange(cat: CatDef): boolean {
+  return cat.coat === 'orange';
 }
 
 export function treatReaction(cat: CatDef, item: string): 'liked' | 'neutral' | 'disliked' {

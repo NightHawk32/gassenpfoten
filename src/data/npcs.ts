@@ -14,6 +14,8 @@ export interface NpcDef {
   district: string;
   /** Spot name in the district where the NPC stands. */
   spot: string;
+  /** Optional: walks between these spots (first tile of each) instead of standing still. */
+  roam?: string[];
   phases: DayPhase[];
   /** Number of greeting lines `npc.<id>.greet.0 … n-1`. */
   greetings: number;
@@ -23,8 +25,10 @@ export interface NpcDef {
   hints?: 'any' | 'night';
   /** Tells you what the weather will do next. */
   forecast?: boolean;
-  /** Story lines `npc.<id>.<line>`, said until the flag is set. */
-  story?: { unlessFlag: string; line: string }[];
+  /** Number of lines `npc.<id>.bark.0 … n-1` muttered aloud when the player is nearby. */
+  barks?: number;
+  /** Story lines `npc.<id>.<line>`, said once `ifFlag` (optional) is set and until `unlessFlag` is set. */
+  story?: { unlessFlag: string; ifFlag?: string; line: string }[];
 }
 
 export const NPCS: NpcDef[] = raw as NpcDef[];
