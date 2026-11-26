@@ -1,7 +1,7 @@
 import raw from '../data/quests.json';
 import { t, type TextKey } from '../i18n/i18n';
 import { bus, EV, type GameEvent, type GameEventType } from './events';
-import { gameState } from './gameState';
+import { gameState, LEVEL } from './gameState';
 
 /**
  * Quests (missions / story arcs) as data. A quest is a list of steps; each
@@ -41,6 +41,20 @@ function matches(step: QuestStep, event: GameEvent): boolean {
   );
 }
 
+/**
+ * Steps about a cat's state that may already be true when the step becomes
+ * active. `cat-seen` / `cat-level` only fire once (when the level rises), so
+ * without this a cat met before its step was reached would block the quest.
+ */
+function alreadyDone(step: QuestStep): boolean {
+  const cat = step.match?.cat;
+  if (typeof cat !== 'string') return false;
+  const level = gameState().cat(cat).level;
+  if (step.event === 'cat-seen') return level >= LEVEL.SEEN;
+  if (step.event === 'cat-level') return level >= Number(step.match?.level ?? 0);
+  return false;
+}
+
 export const questTitle = (q: QuestDef) => t(`quest.${q.id}.title` as TextKey);
 export const stepText = (q: QuestDef, step: QuestStep) => t(`quest.${q.id}.${step.id}` as TextKey);
 
@@ -52,7 +66,8 @@ class QuestSystem {
     if (this.started) return;
     this.started = true;
     bus.on(EV.GAME, (e: GameEvent) => this.onEvent(e));
-    this.unlockNew(false);
+    // Also unsticks saves where a step was already fulfilled before it became active.
+    this.settle(false, false);
   }
 
   /** Active (started, not finished) quests in definition order. */
@@ -83,11 +98,32 @@ class QuestSystem {
       p.count++;
       changed = true;
       if (p.count < (step.count ?? 1)) continue;
-      p.step++;
-      p.count = 0;
-      if (p.step >= def.steps.length) this.complete(def);
+      this.advance(def);
     }
-    if (changed) this.unlockNew(true);
+    if (changed) this.settle(true, true);
+  }
+
+  private advance(def: QuestDef): void {
+    const p = gameState().quest(def.id)!;
+    p.step++;
+    p.count = 0;
+    if (p.step >= def.steps.length) this.complete(def);
+  }
+
+  /**
+   * Starts newly unlocked quests and skips steps that are already fulfilled,
+   * repeating until nothing changes (one may lead to the other).
+   */
+  private settle(announce: boolean, changed: boolean): void {
+    for (let progress = true; progress; ) {
+      progress = this.unlockNew(announce);
+      for (const { def, step } of this.active()) {
+        if (!alreadyDone(step)) continue;
+        this.advance(def);
+        progress = true;
+      }
+      changed ||= progress;
+    }
     if (changed) bus.emit(EV.QUESTS_CHANGED);
   }
 
@@ -106,7 +142,7 @@ class QuestSystem {
   }
 
   /** Starts every quest whose requirements are now met. */
-  private unlockNew(announce: boolean): void {
+  private unlockNew(announce: boolean): boolean {
     const state = gameState();
     let any = false;
     for (const def of QUESTS) {
@@ -117,7 +153,7 @@ class QuestSystem {
       any = true;
       if (announce) bus.emit(EV.TOAST, t('quest.new', { title: questTitle(def) }));
     }
-    if (any) bus.emit(EV.QUESTS_CHANGED);
+    return any;
   }
 }
 
