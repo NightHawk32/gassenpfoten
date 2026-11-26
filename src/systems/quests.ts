@@ -42,17 +42,25 @@ function matches(step: QuestStep, event: GameEvent): boolean {
 }
 
 /**
- * Steps about a cat's state that may already be true when the step becomes
- * active. `cat-seen` / `cat-level` only fire once (when the level rises), so
- * without this a cat met before its step was reached would block the quest.
+ * Steps about a specific cat that may already be true when the step becomes
+ * active, judged by the cat's trust level. Their events fired before the step
+ * was reached (`cat-seen` even only fires once), so without this a cat met,
+ * fed or petted early would block the quest. Steps that need more than the
+ * cat (a reaction, an item, a count) can't be judged by level and must wait.
  */
+const LEVEL_FOR: Partial<Record<string, number>> = {
+  'cat-seen': LEVEL.SEEN,
+  'cat-fed': LEVEL.FED,
+  'cat-petted': LEVEL.FRIEND,
+};
+
 function alreadyDone(step: QuestStep): boolean {
-  const cat = step.match?.cat;
-  if (typeof cat !== 'string') return false;
+  const { cat, ...rest } = step.match ?? {};
+  if (typeof cat !== 'string' || (step.count ?? 1) > 1) return false;
   const level = gameState().cat(cat).level;
-  if (step.event === 'cat-seen') return level >= LEVEL.SEEN;
-  if (step.event === 'cat-level') return level >= Number(step.match?.level ?? 0);
-  return false;
+  if (step.event === 'cat-level') return level >= Number(rest.level ?? 0);
+  const need = LEVEL_FOR[step.event];
+  return need !== undefined && Object.keys(rest).length === 0 && level >= need;
 }
 
 export const questTitle = (q: QuestDef) => t(`quest.${q.id}.title` as TextKey);
