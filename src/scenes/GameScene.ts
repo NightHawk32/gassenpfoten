@@ -97,6 +97,10 @@ export class GameScene extends Phaser.Scene {
   /** Set once the player has stepped off every exit tile, so arriving next to an exit doesn't bounce them back. */
   private exitArmed = false;
   private travelling = false;
+  /** A demo is marching through this district right now (src/systems/demo.ts). */
+  private demoOn = false;
+  /** The NPC in the current conversation (their shop opens afterwards). */
+  private talkingTo: Npc | null = null;
 
   constructor() {
     super('Game');
@@ -121,6 +125,8 @@ export class GameScene extends Phaser.Scene {
     this.pointerHeld = false;
     this.exitArmed = false;
     this.travelling = false;
+    this.demoOn = false;
+    this.talkingTo = null;
 
     this.buildWorld();
 
@@ -150,8 +156,10 @@ export class GameScene extends Phaser.Scene {
       cat.companionOf = this.player;
     });
 
+    // During a demo the square is empty (checkDemo() brings the demonstrators on the first frame).
+    const demoHere = this.demoDistrict() && state.demo.active(state.clock.toJSON());
     for (const cat of this.cats) {
-      if (cat.companionOf || this.leaderOf(cat) || !catActive(cat.def, this.phase, this.weather)) continue;
+      if (cat.companionOf || this.leaderOf(cat) || demoHere || !catActive(cat.def, this.phase, this.weather)) continue;
       const spot = this.randomSpot(cat);
       cat.appearAt(spot);
       this.followerOf(cat)?.appearAt(this.besideTile(spot));
@@ -342,6 +350,9 @@ export class GameScene extends Phaser.Scene {
         () => {
           this.talking = false;
           for (const npc of this.npcs) npc.hold = false;
+          const seller = this.talkingTo;
+          this.talkingTo = null;
+          if (seller?.def.shop && seller.here) bus.emit(EV.SHOP, seller.def.id);
         },
       ],
     ];
@@ -362,6 +373,7 @@ export class GameScene extends Phaser.Scene {
     state.clock.update(deltaMs * (fast ? FAST_FORWARD : 1));
     this.checkPhase();
     this.checkWeather();
+    this.checkDemo();
     this.weatherFx.update(dt, this.weather);
     if (state.dailyRefill()) bus.emit(EV.TOAST, t('toast.refill'));
 
@@ -433,7 +445,7 @@ export class GameScene extends Phaser.Scene {
     emitGame({ type: 'phase', phase, day: clock.day });
 
     this.updatePresence(null);
-    for (const npc of this.npcs) npc.setPresent(npc.def.phases.includes(phase));
+    for (const npc of this.npcs) if (!npc.def.demo) npc.setPresent(npc.def.phases.includes(phase));
   }
 
   private checkWeather(): void {
@@ -456,7 +468,7 @@ export class GameScene extends Phaser.Scene {
       // ex-companions from other districts have nowhere to go here.
       if (this.leaderOf(cat) || cat.companionOf || cat.def.district !== this.district.def.id) continue;
       const follower = this.followerOf(cat);
-      const active = catActive(cat.def, this.phase, this.weather);
+      const active = !this.demoOn && catActive(cat.def, this.phase, this.weather);
       if (cat.state === 'idle' && !active) {
         cat.leave(false);
       } else if (!cat.present && active) {
@@ -475,6 +487,44 @@ export class GameScene extends Phaser.Scene {
           if (follower?.state === 'idle') follower.moveTo(this.besideTile(spot));
         }
       }
+    }
+  }
+
+  // ------------------------------------------------------------------ demo
+
+  /** Does a demo march through this district (are there demonstrators here)? */
+  private demoDistrict(): boolean {
+    return NPCS.some((n) => n.demo && n.district === this.district.def.id);
+  }
+
+  /** Starts or ends the demo here: demonstrators march in and every cat runs for it. */
+  private checkDemo(): void {
+    const state = gameState();
+    const now = state.clock.toJSON();
+    state.demo.update(now, state.hasFlag('tutorial-done'));
+    const on = this.demoDistrict() && state.demo.active(now);
+    if (on === this.demoOn) return;
+    this.demoOn = on;
+    const area = this.district.def.id;
+    for (const npc of this.npcs) if (npc.def.demo) npc.setPresent(on);
+    if (on) {
+      bus.emit(EV.TOAST, t('toast.demo.start'));
+      for (const cat of this.cats) {
+        if (cat.companionOf || cat.state === 'absent' || cat.state === 'leaving' || cat.state === 'fleeing') continue;
+        if (cat.state === 'petting') continue;
+        if (this.bowl?.cat === cat) this.removeBowl();
+        // Not all at once: one after the other as the chanting reaches them.
+        this.time.delayedCall(Phaser.Math.Between(0, 1500), () => {
+          if (this.demoOn && cat.present && cat.state !== 'leaving' && cat.state !== 'fleeing' && cat.state !== 'petting') {
+            cat.leave(true);
+          }
+        });
+      }
+      emitGame({ type: 'demo-seen', area });
+    } else {
+      bus.emit(EV.TOAST, t('toast.demo.end'));
+      this.updatePresence(null);
+      emitGame({ type: 'demo-ended', area });
     }
   }
 
@@ -715,6 +765,7 @@ export class GameScene extends Phaser.Scene {
 
   private talkTo(npc: Npc): void {
     this.talking = true;
+    this.talkingTo = npc;
     this.player.stop();
     npc.hold = true;
     npc.face(this.player);

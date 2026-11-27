@@ -69,8 +69,8 @@
       "afternoon",
       "evening"
     ],
-    "greetings": 5,
-    "barks": 15,
+    "greetings": 9,
+    "barks": 21,
     "gift": {
       "item": "yarn",
       "amount": 1
@@ -85,7 +85,153 @@
         "ifFlag": "braincell-proven",
         "unlessFlag": "palmer-report",
         "line": "report"
+      },
+      {
+        "ifStep": "catnip-trail.ask",
+        "line": "catnip",
+        "give": {
+          "item": "catnip",
+          "amount": 1
+        }
+      },
+      {
+        "ifStep": "catnip-trail.find",
+        "line": "catnipWait"
+      },
+      {
+        "ifStep": "catnip-trail.feed",
+        "line": "catnipWait"
+      },
+      {
+        "ifStep": "catnip-trail.report",
+        "line": "catnipReport"
+      },
+      {
+        "ifStep": "palmer-kuhn.ask",
+        "line": "kuhn"
+      },
+      {
+        "ifStep": "palmer-kuhn.kuhn",
+        "line": "kuhnWait"
+      },
+      {
+        "ifStep": "palmer-kuhn.report",
+        "line": "kuhnReport"
+      },
+      {
+        "ifStep": "palmer-demo.ask",
+        "line": "demo"
+      },
+      {
+        "ifStep": "palmer-demo.see",
+        "line": "demoWait"
+      },
+      {
+        "ifStep": "palmer-demo.report",
+        "line": "demoReport"
+      }
+    ],
+    "giftCoins": 2
+  },
+  {
+    "id": "guenni",
+    "name": "Günni",
+    "look": "guenni",
+    "district": "bota",
+    "spot": "guenni",
+    "phases": [
+      "midday",
+      "afternoon",
+      "evening",
+      "night"
+    ],
+    "greetings": 6,
+    "barks": 8,
+    "shop": [
+      {
+        "item": "catnip",
+        "price": 3
+      }
+    ],
+    "story": [
+      {
+        "ifStep": "bota-deal.dealer",
+        "line": "intro"
       }
     ]
+  },
+  {
+    "id": "kuhn",
+    "name": "Dieter Thomas Kuhn",
+    "look": "kuhn",
+    "district": "neckarfront",
+    "spot": "kuhn",
+    "phases": [
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "greetings": 6,
+    "barks": 12,
+    "story": [
+      {
+        "ifStep": "palmer-kuhn.kuhn",
+        "line": "complaint"
+      }
+    ]
+  },
+  {
+    "id": "vegan-1",
+    "name": "Lea",
+    "look": "vegan-1",
+    "district": "marktplatz",
+    "spot": "fountain",
+    "demo": true,
+    "prop": "placard-leaf",
+    "roam": [
+      "fountain",
+      "rathaus-arcade",
+      "church-garden",
+      "stiftskirche-steps"
+    ],
+    "phases": [],
+    "greetings": 3,
+    "barks": 6
+  },
+  {
+    "id": "vegan-2",
+    "name": "Finn",
+    "look": "vegan-2",
+    "district": "marktplatz",
+    "spot": "rathaus-arcade",
+    "demo": true,
+    "prop": "placard-carrot",
+    "roam": [
+      "rathaus-arcade",
+      "fountain",
+      "stiftskirche-steps",
+      "bakery-vent"
+    ],
+    "phases": [],
+    "greetings": 3,
+    "barks": 6
+  },
+  {
+    "id": "vegan-3",
+    "name": "Jule",
+    "look": "vegan-3",
+    "district": "marktplatz",
+    "spot": "stiftskirche-steps",
+    "demo": true,
+    "prop": "placard-heart",
+    "roam": [
+      "stiftskirche-steps",
+      "fountain",
+      "rathaus-arcade",
+      "church-garden"
+    ],
+    "phases": [],
+    "greetings": 3,
+    "barks": 6
   }
 ]

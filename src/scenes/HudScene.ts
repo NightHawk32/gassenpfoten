@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { catTextureKey } from '../art/sprites';
 import { CATS, isOrange } from '../data/cats';
 import { brainCellHolder } from '../world/brainCell';
-import { ITEMS, itemsOfCategory } from '../data/items';
+import { DEFAULT_ITEM_MAX, itemDef, ITEMS, itemsOfCategory } from '../data/items';
+import { NPCS, type NpcDef } from '../data/npcs';
 import { onLanguageChange, t, toggleLanguage, type TextKey } from '../i18n/i18n';
 import type { DialogueLine } from '../systems/dialogue';
 import { bus, EV, type InteractPrompt } from '../systems/events';
@@ -10,11 +11,14 @@ import { gameState, LEVEL } from '../systems/gameState';
 import { QUESTS, questTitle, quests, stepText } from '../systems/quests';
 import { isTouchDevice, pixelScale, uiScale } from '../systems/viewport';
 import type { Weather } from '../systems/weather';
+import { attachBackdrop, BACKDROP, UI, type Backdrop } from '../ui/backdrop';
 import { makeButton, toggleFullscreen, type Button } from '../ui/button';
 
 const TOAST_SECONDS = 4.5;
 const WEATHER_ICON: Record<Weather, string> = { sunny: '☀️', cloudy: '☁️', rain: '🌧️', fog: '🌫️' };
 const MAX_TOASTS = 3;
+/** Speaker's name tag on the top edge of the dialogue box. */
+const NAME_TAG = { fill: 0x6a3a58, alpha: 1, radius: 6, border: UI.border, borderAlpha: 0.85, shine: true };
 
 /**
  * Screen-space UI on top of the world: clock, current objective, buttons,
@@ -24,6 +28,7 @@ export class HudScene extends Phaser.Scene {
   private s = 1;
   private clockText!: Phaser.GameObjects.Text;
   private objectiveText!: Phaser.GameObjects.Text;
+  private labelBackdrops: Backdrop[] = [];
   private buttons: Button[] = [];
   private journalBtn!: Button;
   private langBtn!: Button;
@@ -33,14 +38,17 @@ export class HudScene extends Phaser.Scene {
   private promptBtn!: Button;
   private prompt: InteractPrompt | null = null;
   private sneakOn = false;
-  private toasts: { obj: Phaser.GameObjects.Text; age: number }[] = [];
-  private menu: { title: Phaser.GameObjects.Text; items: string[]; buttons: Button[]; cancel: Button } | null = null;
+  private toasts: { obj: Phaser.GameObjects.Text; age: number; backdrop: Backdrop }[] = [];
+  private menu: { title: Phaser.GameObjects.Text; titleBackdrop: Backdrop; items: string[]; buttons: Button[]; cancel: Button } | null = null;
   private journal: Phaser.GameObjects.Container | null = null;
+  private shop: { npc: NpcDef; title: Phaser.GameObjects.Text; titleBackdrop: Backdrop; buttons: Button[]; close: Button } | null = null;
   private dialogue: {
     lines: DialogueLine[];
     index: number;
     box: Phaser.GameObjects.Rectangle;
+    panel: Phaser.GameObjects.Graphics;
     name: Phaser.GameObjects.Text;
+    nameBackdrop: Backdrop;
     body: Phaser.GameObjects.Text;
     more: Phaser.GameObjects.Text;
   } | null = null;
@@ -54,12 +62,14 @@ export class HudScene extends Phaser.Scene {
     this.buttons = [];
     this.toasts = [];
     this.menu = null;
+    this.shop = null;
     this.journal = null;
     this.dialogue = null;
 
-    const textStyle = { fontFamily: 'Georgia, serif', color: '#fff6d5', backgroundColor: '#1d2433aa' };
+    const textStyle = { fontFamily: 'Georgia, serif', color: UI.text };
     this.clockText = this.add.text(0, 0, '', { ...textStyle, fontFamily: 'monospace' });
-    this.objectiveText = this.add.text(0, 0, '', { ...textStyle, color: '#f2d8a7' });
+    this.objectiveText = this.add.text(0, 0, '', { ...textStyle, color: UI.accent });
+    this.labelBackdrops = [attachBackdrop(this.clockText, BACKDROP.label), attachBackdrop(this.objectiveText, BACKDROP.label)];
 
     this.journalBtn = this.addButton(makeButton(this, () => t('hud.journal'), () => this.toggleJournal()));
     this.langBtn = this.addButton(makeButton(this, () => t('language'), () => toggleLanguage()));
@@ -84,12 +94,18 @@ export class HudScene extends Phaser.Scene {
     kb.on('keydown-L', () => toggleLanguage());
     kb.on('keydown-ESC', () => {
       if (this.journal) this.toggleJournal();
+      else if (this.shop) this.closeShop();
       else if (this.menu) this.chooseTreat(null);
       else if (this.dialogue) this.closeDialogue();
     });
     kb.on('keydown', (e: KeyboardEvent) => {
-      // 1–4 pick a treat in the menu.
-      const item = this.menu?.items[Number(e.key) - 1];
+      // Number keys pick a treat in the menu, or buy in a shop.
+      const index = Number(e.key) - 1;
+      if (this.shop) {
+        if (this.shop.buttons[index]) this.buy(index);
+        return;
+      }
+      const item = this.menu?.items[index];
       if (item && gameState().itemCount(item) > 0) this.chooseTreat(item);
     });
 
@@ -100,6 +116,7 @@ export class HudScene extends Phaser.Scene {
       [EV.QUESTS_CHANGED, () => this.updateObjective()],
       [EV.DIALOGUE, (lines: DialogueLine[]) => this.openDialogue(lines)],
       [EV.DIALOGUE_NEXT, () => this.nextLine()],
+      [EV.SHOP, (npcId: string) => this.openShop(npcId)],
     ];
     for (const [ev, fn] of handlers) bus.on(ev, fn);
     const offLang = onLanguageChange(() => this.refreshTexts());
@@ -146,8 +163,11 @@ export class HudScene extends Phaser.Scene {
     this.promptBtn.style(s, 15);
 
     this.updateClock();
-    this.clockText.setFontSize(Math.round(12 * s));
-    this.objectiveText.setFontSize(Math.round(11 * s));
+    const padX = Math.round(7 * s);
+    const padY = Math.round(3 * s);
+    this.clockText.setFontSize(Math.round(12 * s)).setPadding(padX, padY, padX, padY);
+    this.objectiveText.setFontSize(Math.round(11 * s)).setPadding(padX, padY, padX, padY);
+    this.labelBackdrops.forEach((b) => b.setScale(s));
 
     // Top-right buttons in a row. If they don't fit beside the clock (portrait
     // phones), they get the first row and the clock moves below them.
@@ -163,7 +183,7 @@ export class HudScene extends Phaser.Scene {
     this.clockText.setPosition(m, clockY);
     this.objectiveText
       .setWordWrapWidth(narrow ? w - m * 2 : Math.min(w * 0.6, 320 * s), true)
-      .setPosition(m, clockY + this.clockText.height + Math.round(4 * s));
+      .setPosition(m, clockY + this.clockText.height + Math.round(5 * s));
 
     this.sneakBtn.obj.setOrigin(0, 1).setPosition(m, h - m);
     this.fastBtn.obj.setOrigin(1, 1).setPosition(w - m, h - m);
@@ -171,6 +191,7 @@ export class HudScene extends Phaser.Scene {
 
     this.layoutToasts();
     if (this.menu) this.layoutMenu();
+    if (this.shop) this.layoutShop();
     if (this.dialogue) this.layoutDialogue();
     if (this.journal) {
       this.closeJournal();
@@ -182,13 +203,14 @@ export class HudScene extends Phaser.Scene {
     const w = this.scale.width;
     const s = this.s;
     let y = Math.round(this.scale.height * 0.2);
-    for (const { obj } of this.toasts) {
+    for (const { obj, backdrop } of this.toasts) {
+      backdrop.setScale(s);
       obj
         .setFontSize(Math.round(12 * s))
-        .setPadding(Math.round(8 * s), Math.round(4 * s), Math.round(8 * s), Math.round(4 * s))
+        .setPadding(Math.round(10 * s), Math.round(5 * s), Math.round(10 * s), Math.round(5 * s))
         .setWordWrapWidth(Math.min(w * 0.9, 460 * s), true)
         .setPosition(w / 2, y);
-      y += obj.height + Math.round(4 * s);
+      y += obj.height + Math.round(5 * s);
     }
   }
 
@@ -199,7 +221,7 @@ export class HudScene extends Phaser.Scene {
     const w = state.weather.current;
     const icon = w === 'sunny' && clock.phase === 'night' ? '🌙' : WEATHER_ICON[w];
     this.clockText.setText(
-      ` ${place} · ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} · ${icon} `,
+      `${place} · ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} · ${icon} · 🪙 ${state.coins}`,
     );
   }
 
@@ -216,13 +238,15 @@ export class HudScene extends Phaser.Scene {
   private setPrompt(p: InteractPrompt | null): void {
     this.prompt = p;
     if (!p && this.menu) this.chooseTreat(null);
+    // Walked away from the seller.
+    if (this.shop && p?.targetId !== this.shop.npc.id) this.closeShop();
     this.promptBtn.refresh();
-    this.promptBtn.obj.setVisible(!!p && !this.menu && !this.dialogue);
+    this.promptBtn.obj.setVisible(!!p && !this.menu && !this.dialogue && !this.shop);
   }
 
   private updateObjective(): void {
     const text = quests.currentObjective();
-    this.objectiveText.setText(text ? ` 📜 ${text} ` : '').setVisible(!!text);
+    this.objectiveText.setText(text ? `📜 ${text}` : '').setVisible(!!text);
   }
 
   // ------------------------------------------------------------------ dialogue
@@ -230,14 +254,17 @@ export class HudScene extends Phaser.Scene {
   private openDialogue(lines: DialogueLine[]): void {
     this.closeDialogue(false);
     if (!lines.length) return;
-    const style = { fontFamily: 'Georgia, serif', color: '#fff6d5' };
-    const box = this.add.rectangle(0, 0, 1, 1, 0x241c2c, 0.95).setOrigin(0.5, 1).setDepth(45).setInteractive();
+    const style = { fontFamily: 'Georgia, serif', color: UI.text };
+    // The rectangle is only the tap area; the panel is drawn rounded behind it.
+    const box = this.add.rectangle(0, 0, 1, 1, 0x000000, 0).setOrigin(0.5, 1).setDepth(45).setInteractive();
     box.on(Phaser.Input.Events.POINTER_DOWN, () => this.nextLine());
-    const name = this.add.text(0, 0, '', { ...style, color: '#f2d8a7' }).setDepth(46);
+    const panel = this.add.graphics().setDepth(45);
+    const name = this.add.text(0, 0, '', style).setOrigin(0, 0.5).setDepth(46);
+    const nameBackdrop = attachBackdrop(name, NAME_TAG, this.s);
     const body = this.add.text(0, 0, '', style).setDepth(46);
-    const more = this.add.text(0, 0, '▼', { ...style, color: '#f2d8a7' }).setOrigin(1, 1).setDepth(46);
+    const more = this.add.text(0, 0, '▼', { ...style, color: UI.accent }).setOrigin(1, 1).setDepth(46);
     this.tweens.add({ targets: more, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
-    this.dialogue = { lines, index: 0, box, name, body, more };
+    this.dialogue = { lines, index: 0, box, panel, name, nameBackdrop, body, more };
     this.promptBtn.obj.setVisible(false);
     this.layoutDialogue();
   }
@@ -251,16 +278,33 @@ export class HudScene extends Phaser.Scene {
     const pad = Math.round(12 * s);
     const boxW = Math.min(w * 0.94, 520 * s);
     const line = d.lines[d.index];
-    d.name.setText(line.name).setFontSize(Math.round(13 * s));
+    d.name
+      .setText(line.name)
+      .setFontSize(Math.round(12 * s))
+      .setPadding(Math.round(9 * s), Math.round(3 * s), Math.round(9 * s), Math.round(3 * s));
+    d.nameBackdrop.setScale(s);
     d.body.setText(line.text).setFontSize(Math.round(13 * s)).setWordWrapWidth(boxW - pad * 2, true);
     d.more.setText(d.index < d.lines.length - 1 ? '▼' : '✕').setFontSize(Math.round(12 * s));
-    const boxH = pad * 2 + d.name.height + Math.round(4 * s) + d.body.height + Math.round(6 * s);
+    // The name tag sits on the top edge; the text starts below its lower half.
+    const nameHalf = d.name.height / 2;
+    const boxH = pad * 2 + nameHalf + d.body.height + Math.round(6 * s);
     const bottom = h - Math.round(8 * s) - this.sneakBtn.obj.height - Math.round(10 * s);
     const left = w / 2 - boxW / 2;
-    d.box.setStrokeStyle(Math.max(1, s), 0xf2d8a7).setSize(boxW, boxH).setPosition(w / 2, bottom);
+    const top = bottom - boxH;
+    d.box.setSize(boxW, boxH).setPosition(w / 2, bottom);
     d.box.input?.hitArea.setTo(0, 0, boxW, boxH);
-    d.name.setPosition(left + pad, bottom - boxH + pad);
-    d.body.setPosition(left + pad, d.name.y + d.name.height + Math.round(4 * s));
+    const r = Math.round(10 * s);
+    const lw = Math.max(1, 1.5 * s);
+    d.panel
+      .clear()
+      .fillStyle(0x000000, 0.25)
+      .fillRoundedRect(left + 2 * s, top + 3 * s, boxW, boxH, r)
+      .fillStyle(UI.panelWarm, 0.96)
+      .fillRoundedRect(left, top, boxW, boxH, r)
+      .lineStyle(lw, UI.border, 0.85)
+      .strokeRoundedRect(left + lw / 2, top + lw / 2, boxW - lw, boxH - lw, r);
+    d.name.setPosition(left + pad, top);
+    d.body.setPosition(left + pad, top + nameHalf + pad * 0.7);
     d.more.setPosition(left + boxW - pad, bottom - Math.round(6 * s));
   }
 
@@ -278,9 +322,9 @@ export class HudScene extends Phaser.Scene {
   private closeDialogue(notify = true): void {
     const d = this.dialogue;
     if (!d) return;
-    [d.box, d.name, d.body, d.more].forEach((o) => o.destroy());
+    [d.box, d.panel, d.name, d.body, d.more].forEach((o) => o.destroy());
     this.dialogue = null;
-    this.promptBtn.obj.setVisible(!!this.prompt && !this.menu);
+    this.promptBtn.obj.setVisible(!!this.prompt && !this.menu && !this.shop);
     if (notify) bus.emit(EV.DIALOGUE_DONE);
   }
 
@@ -288,10 +332,10 @@ export class HudScene extends Phaser.Scene {
 
   private toast(text: string): void {
     const obj = this.add
-      .text(0, 0, text, { fontFamily: 'Georgia, serif', color: '#fff6d5', backgroundColor: '#1d2433dd', align: 'center' })
+      .text(0, 0, text, { fontFamily: 'Georgia, serif', color: UI.text, align: 'center' })
       .setOrigin(0.5, 0)
       .setDepth(50);
-    this.toasts.push({ obj, age: 0 });
+    this.toasts.push({ obj, age: 0, backdrop: attachBackdrop(obj, BACKDROP.toast, this.s) });
     while (this.toasts.length > MAX_TOASTS) this.toasts.shift()!.obj.destroy();
     this.layoutToasts();
   }
@@ -304,9 +348,10 @@ export class HudScene extends Phaser.Scene {
     if (!cat) return;
     const state = gameState();
     const title = this.add
-      .text(0, 0, t('menu.title', { name: cat.name }), { fontFamily: 'Georgia, serif', color: '#fff6d5', backgroundColor: '#1d2433dd' })
+      .text(0, 0, t('menu.title', { name: cat.name }), { fontFamily: 'Georgia, serif', color: UI.text })
       .setOrigin(0.5, 1)
       .setDepth(40);
+    const titleBackdrop = attachBackdrop(title, BACKDROP.toast, this.s);
     const treats = itemsOfCategory('treat');
     const buttons = treats.map((item, i) => {
       const count = state.itemCount(item.id);
@@ -317,20 +362,21 @@ export class HudScene extends Phaser.Scene {
     });
     const cancel = makeButton(this, () => t('menu.cancel'), () => this.chooseTreat(null));
     cancel.obj.setDepth(40);
-    this.menu = { title, items: treats.map((i) => i.id), buttons, cancel };
+    this.menu = { title, titleBackdrop, items: treats.map((i) => i.id), buttons, cancel };
     this.promptBtn.obj.setVisible(false);
     this.layoutMenu();
   }
 
   private layoutMenu(): void {
     if (!this.menu) return;
-    const { title, buttons, cancel } = this.menu;
+    const { title, titleBackdrop, buttons, cancel } = this.menu;
     const w = this.scale.width;
     const h = this.scale.height;
     const s = this.s;
     const gap = Math.round(6 * s);
     [...buttons, cancel].forEach((b) => b.style(s, 13));
-    title.setFontSize(Math.round(13 * s)).setPadding(Math.round(8 * s), Math.round(4 * s), Math.round(8 * s), Math.round(4 * s));
+    title.setFontSize(Math.round(13 * s)).setPadding(Math.round(10 * s), Math.round(5 * s), Math.round(10 * s), Math.round(5 * s));
+    titleBackdrop.setScale(s);
 
     // As many columns as fit; usually 2×2 on phones, 4 in a row on wide screens.
     const bw = Math.max(...buttons.map((b) => b.obj.width));
@@ -356,6 +402,92 @@ export class HudScene extends Phaser.Scene {
     this.menu = null;
     this.promptBtn.obj.setVisible(!!this.prompt);
     bus.emit(EV.TREAT_CHOSEN, item);
+  }
+
+  // ------------------------------------------------------------------ shop
+
+  private openShop(npcId: string): void {
+    const npc = NPCS.find((n) => n.id === npcId);
+    if (this.shop || this.menu || this.journal || !npc?.shop?.length) return;
+    const title = this.add
+      .text(0, 0, '', { fontFamily: 'Georgia, serif', color: UI.text, align: 'center' })
+      .setOrigin(0.5, 1)
+      .setDepth(40);
+    const titleBackdrop = attachBackdrop(title, BACKDROP.toast, this.s);
+    const buttons = npc.shop.map((entry, i) => {
+      const b = makeButton(
+        this,
+        () =>
+          t('shop.item', {
+            n: i + 1,
+            item: t(`item.${entry.item}` as TextKey),
+            price: entry.price,
+            count: gameState().itemCount(entry.item),
+          }),
+        () => this.buy(i),
+      );
+      b.obj.setDepth(40);
+      return b;
+    });
+    const close = makeButton(this, () => t('shop.close'), () => this.closeShop());
+    close.obj.setDepth(40);
+    this.shop = { npc, title, titleBackdrop, buttons, close };
+    this.promptBtn.obj.setVisible(false);
+    this.refreshShop();
+  }
+
+  private refreshShop(): void {
+    const shop = this.shop;
+    if (!shop) return;
+    const state = gameState();
+    shop.title.setText(t('shop.title', { name: shop.npc.name, coins: state.coins }));
+    shop.npc.shop!.forEach((entry, i) => {
+      const full = state.itemCount(entry.item) >= (itemDef(entry.item).max ?? DEFAULT_ITEM_MAX);
+      shop.buttons[i].refresh();
+      shop.buttons[i].setEnabled(state.coins >= entry.price && !full);
+    });
+    this.layoutShop();
+  }
+
+  private layoutShop(): void {
+    const shop = this.shop;
+    if (!shop) return;
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const s = this.s;
+    const gap = Math.round(6 * s);
+    [...shop.buttons, shop.close].forEach((b) => b.style(s, 13));
+    shop.title.setFontSize(Math.round(13 * s)).setPadding(Math.round(10 * s), Math.round(5 * s), Math.round(10 * s), Math.round(5 * s));
+    shop.titleBackdrop.setScale(s);
+    const bottom = h - Math.round(8 * s) - this.sneakBtn.obj.height - gap * 2 - shop.close.obj.height;
+    let y = bottom;
+    for (const b of [...shop.buttons].reverse()) {
+      y -= b.obj.height;
+      b.obj.setOrigin(0.5, 0).setPosition(w / 2, y);
+      y -= gap;
+    }
+    shop.close.obj.setOrigin(0.5, 0).setPosition(w / 2, bottom + gap);
+    shop.title.setPosition(w / 2, y);
+  }
+
+  private buy(index: number): void {
+    const shop = this.shop;
+    const entry = shop?.npc.shop?.[index];
+    if (!shop || !entry) return;
+    const item = t(`item.${entry.item}` as TextKey);
+    const result = gameState().buy(entry.item, entry.price, shop.npc.id);
+    if (result === 'ok') this.toast(t('toast.bought', { item, price: entry.price }));
+    else this.toast(t(result === 'poor' ? 'toast.tooPoor' : 'toast.bagFull', { item, price: entry.price }));
+    this.refreshShop();
+  }
+
+  private closeShop(): void {
+    const shop = this.shop;
+    if (!shop) return;
+    shop.title.destroy();
+    [...shop.buttons, shop.close].forEach((b) => b.obj.destroy());
+    this.shop = null;
+    this.promptBtn.obj.setVisible(!!this.prompt && !this.menu && !this.dialogue);
   }
 
   // ------------------------------------------------------------------ journal
@@ -394,7 +526,18 @@ export class HudScene extends Phaser.Scene {
 
     const root = this.add.container(0, 0).setDepth(60);
     const blocker = this.add.rectangle(0, 0, w, h, 0x000000, 0.5).setOrigin(0).setInteractive();
-    const panel = this.add.rectangle(left, top, panelW, panelH, 0x241c2c, 0.97).setOrigin(0).setStrokeStyle(Math.max(1, s), 0xf2d8a7);
+    const r = Math.round(12 * s);
+    const lw = Math.max(1, 1.5 * s);
+    const panel = this.add
+      .graphics()
+      .fillStyle(0x000000, 0.3)
+      .fillRoundedRect(left + 3 * s, top + 4 * s, panelW, panelH, r)
+      .fillStyle(UI.panelWarm, 0.97)
+      .fillRoundedRect(left, top, panelW, panelH, r)
+      .lineStyle(lw, UI.border, 0.85)
+      .strokeRoundedRect(left + lw / 2, top + lw / 2, panelW - lw, panelH - lw, r)
+      .lineStyle(Math.max(1, s), UI.border, 0.25)
+      .strokeRoundedRect(left + 4 * s, top + 4 * s, panelW - 8 * s, panelH - 8 * s, Math.max(2, r - 4 * s));
     root.add([blocker, panel]);
 
     const content = this.add.container(left + pad, top + pad);
@@ -469,6 +612,7 @@ export class HudScene extends Phaser.Scene {
       .map((i) => `${t(`item.${i.id}` as TextKey)} ×${state.itemCount(i.id)}`)
       .join(' · ');
     text(bag || t('journal.bagEmpty'), 11, '#c9c3d6', Math.round(8 * s));
+    text(t('journal.coins', { coins: state.coins }), 11, '#f2d8a7', Math.round(8 * s));
 
     // Scrollable area with a mask; the close button stays on top.
     const close = makeButton(this, () => t('journal.close'), () => this.toggleJournal());
@@ -524,6 +668,7 @@ export class HudScene extends Phaser.Scene {
 
   private refreshTexts(): void {
     for (const b of this.buttons) b.refresh();
+    if (this.shop) this.refreshShop();
     this.updateObjective();
     this.layout();
   }

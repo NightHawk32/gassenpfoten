@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { NpcDef } from '../data/npcs';
 import { uiScale } from '../systems/viewport';
+import { attachBackdrop, BACKDROP } from '../ui/backdrop';
 import { tileCenter, toTile, type Point, type WorldGrid } from '../world/grid';
 
 const WALK_SPEED = 20;
@@ -25,6 +26,8 @@ export class Npc {
   private linger = Phaser.Math.FloatBetween(...LINGER);
   private bubble: Phaser.GameObjects.Text | null = null;
   private bubbleTimer = 0;
+  /** Carried above the head (a demo placard), if the NPC has a `prop`. */
+  private readonly prop: Phaser.GameObjects.Image | null;
 
   constructor(
     scene: Phaser.Scene,
@@ -43,6 +46,9 @@ export class Npc {
       .setVisible(false);
     this.sprite.setInteractive(new Phaser.Geom.Rectangle(-4, -4, 24, 28), Phaser.Geom.Rectangle.Contains);
     this.sprite.setData('npc', this);
+    this.prop = def.prop ? scene.add.image(p.x, p.y, def.prop).setOrigin(0.5, 1).setVisible(false) : null;
+    // Placards bob up and down while marching.
+    if (this.prop) scene.tweens.add({ targets: this.prop, angle: { from: -6, to: 6 }, duration: 700, yoyo: true, repeat: -1 });
     // A little life: shifting weight now and then.
     scene.tweens.add({
       targets: this.sprite,
@@ -92,10 +98,17 @@ export class Npc {
   }
 
   update(dt: number): void {
+    if (this.prop) {
+      this.prop
+        .setPosition(Math.round(this.x + 3), Math.round(this.y - 10))
+        .setDepth(this.sprite.depth + 1)
+        .setAlpha(this.sprite.alpha)
+        .setVisible(this.sprite.visible);
+    }
     if (this.bubble) {
       this.bubbleTimer -= dt;
       if (this.bubbleTimer <= 0) this.hideBubble();
-      else this.bubble.setPosition(Math.round(this.x), Math.round(this.y - 22));
+      else this.bubble.setPosition(Math.round(this.x), Math.round(this.y - (this.prop ? 26 : 22)));
     }
     if (!this.present || this.hold || this.roam.length < 2) return;
 
@@ -134,11 +147,10 @@ export class Npc {
     // Rendered at screen resolution, then shrunk by the camera zoom so it stays crisp.
     const ui = uiScale(scene.scale.width, scene.scale.height);
     this.bubble = scene.add
-      .text(Math.round(this.x), Math.round(this.y - 22), text, {
+      .text(Math.round(this.x), Math.round(this.y - (this.prop ? 26 : 22)), text, {
         fontFamily: 'Georgia, serif',
         fontSize: `${Math.round(BARK_FONT * ui)}px`,
         color: '#fff6d5',
-        backgroundColor: '#1d2433dd',
         padding: { x: Math.round(6 * ui), y: Math.round(4 * ui) },
         align: 'center',
         wordWrap: { width: Math.round(190 * ui), useAdvancedWrap: true },
@@ -146,6 +158,7 @@ export class Npc {
       .setOrigin(0.5, 1)
       .setScale(1 / scene.cameras.main.zoom)
       .setDepth(10003);
+    attachBackdrop(this.bubble, BACKDROP.bubble, ui);
     this.bubbleTimer = BARK_SECONDS;
   }
 

@@ -66,11 +66,13 @@ export const marktplatz: DistrictDef = {
   },
   exits: [
     { x: 10, y: 1 },
-    { x: 29, y: 1 },
+    // Up the north alley to the Botanischer Garten.
+    { x: 29, y: 1, to: { district: 'bota', entry: 'from-marktplatz' } },
     { x: 6, y: 28, to: { district: 'neckarfront', entry: 'from-marktplatz' } },
   ],
   entries: {
     start: { x: 20, y: 9 },
     'from-neckarfront': { x: 6, y: 26 },
+    'from-bota': { x: 29, y: 4 },
   },
 };

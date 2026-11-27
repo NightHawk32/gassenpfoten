@@ -45,8 +45,13 @@ export const TILE = {
   PLASTER_WINDOW_A: 35,
   PLASTER_WINDOW_B: 36,
   PLASTER_WINDOW_C: 37,
+  GLASS: 38,
+  GLASS_ROOF: 39,
+  GRAVEL: 40,
+  HEDGE: 41,
+  BED: 42,
 } as const;
-const TILE_COUNT = 38;
+const TILE_COUNT = 43;
 
 /** Pastel house fronts along the Neckar (A, B, C). */
 const PLASTER = ['#e8c87a', '#d9a0a0', '#a8c4b8'];
@@ -242,6 +247,53 @@ function tower(ctx: Ctx): void {
   rect(ctx, '#f0d27a', S - 3, 0, 1, S);
 }
 
+// ---------------------------------------------------------------- Botanischer Garten
+
+/** Greenhouse glass: white frames, pale green panes with a reflection and plants behind. */
+function glass(ctx: Ctx, roofPane: boolean): void {
+  rect(ctx, roofPane ? '#b6dcd0' : '#9cc8b8', 0, 0, S, S);
+  if (!roofPane) {
+    // Leaves pressing against the glass from inside.
+    const rnd = seededRandom(11);
+    for (let i = 0; i < 10; i++) rect(ctx, rnd() < 0.5 ? '#4e8a52' : '#6aa860', Math.floor(rnd() * 14), 6 + Math.floor(rnd() * 9), 3, 2);
+  }
+  rect(ctx, '#e4f2ec', 2, 1, 1, 4);
+  rect(ctx, '#e4f2ec', 3, 1, 1, 2);
+  const frame = '#f4f6f2';
+  rect(ctx, frame, 0, 0, S, 1);
+  rect(ctx, frame, 0, 0, 1, S);
+  rect(ctx, frame, 8, 0, 1, S);
+  if (roofPane) rect(ctx, frame, 0, 8, S, 1);
+  else rect(ctx, '#d8dcd6', 0, S - 2, S, 2);
+}
+
+function gravel(ctx: Ctx): void {
+  const rnd = seededRandom(23);
+  rect(ctx, '#cbb894', 0, 0, S, S);
+  for (let i = 0; i < 26; i++) rect(ctx, rnd() < 0.5 ? '#b3a07c' : '#ddd0b0', Math.floor(rnd() * S), Math.floor(rnd() * S), 1, 1);
+}
+
+function hedge(ctx: Ctx): void {
+  const rnd = seededRandom(31);
+  rect(ctx, '#2c5a2e', 0, 0, S, S);
+  for (let i = 0; i < 22; i++) rect(ctx, rnd() < 0.5 ? '#3c7240' : '#24482a', Math.floor(rnd() * 15), Math.floor(rnd() * 15), 2, 2);
+  rect(ctx, '#1c3a20', 0, S - 2, S, 2);
+}
+
+/** A bed of herbs and flowers on dark soil. */
+function bed(ctx: Ctx): void {
+  const rnd = seededRandom(47);
+  rect(ctx, '#4a3626', 0, 0, S, S);
+  const flowers = ['#e86a8a', '#f0d050', '#b88ae8', '#f4f0f0'];
+  for (let y = 1; y < S; y += 5) {
+    for (let x = 1; x < S; x += 4) {
+      rect(ctx, '#4e8a40', x, y + 1, 3, 3);
+      rect(ctx, '#6aa850', x + 1, y, 1, 2);
+      if (rnd() < 0.6) rect(ctx, flowers[Math.floor(rnd() * flowers.length)], x + 1, y, 1, 1);
+    }
+  }
+}
+
 /** Draws the tileset into a canvas texture called 'tiles' (one row of tiles). */
 export function registerTiles(scene: Phaser.Scene): void {
   if (scene.textures.exists('tiles')) return;
@@ -319,6 +371,11 @@ export function registerTiles(scene: Phaser.Scene): void {
       plaster(c, PLASTER[2]);
       windowOn(c, '#f4ead4', '#2c3a4f');
     },
+    [TILE.GLASS]: (c) => glass(c, false),
+    [TILE.GLASS_ROOF]: (c) => glass(c, true),
+    [TILE.GRAVEL]: gravel,
+    [TILE.HEDGE]: hedge,
+    [TILE.BED]: bed,
   };
   for (let id = 0; id < TILE_COUNT; id++) {
     ctx.save();

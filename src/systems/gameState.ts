@@ -5,6 +5,7 @@ import { START_DISTRICT } from '../world/districts';
 import { GameClock } from './clock';
 import { emitGame } from './events';
 import { storage } from './storage';
+import { DemoModel, freshDemo, type DemoData } from './demo';
 import { freshWeather, WeatherModel, type WeatherData } from './weather';
 
 /**
@@ -50,7 +51,15 @@ interface SaveData {
   npcGiftDay: Record<string, number>;
   /** The best friend currently following the player around (cat id), if any. */
   companion: string | null;
+  /** Taler: earned from quests and Boris Palmer, spent in shops. */
+  coins: number;
+  demo: DemoData;
 }
+
+/** Taler in a new game (and in saves from before there were any). */
+const START_COINS = 5;
+
+export type BuyResult = 'ok' | 'poor' | 'full';
 
 const SAVE_KEY = `save:v${SAVE_VERSION}`;
 const START_MINUTES = 5 * 60 + 30; // day 1, 05:30: dawn, when cats are most active
@@ -71,6 +80,8 @@ function freshSave(): SaveData {
     weather: freshWeather(START_MINUTES),
     npcGiftDay: {},
     companion: null,
+    coins: START_COINS,
+    demo: freshDemo(START_MINUTES),
   };
 }
 
@@ -79,22 +90,28 @@ function loadSave(): SaveData {
   const fresh = freshSave();
   if (!data || data.version !== SAVE_VERSION || typeof data.minutes !== 'number') return fresh;
   // Saves from before the weather existed start with fresh weather at their own time.
-  return { ...fresh, weather: freshWeather(data.minutes), ...data } as SaveData;
+  return { ...fresh, weather: freshWeather(data.minutes), demo: freshDemo(data.minutes), ...data } as SaveData;
 }
 
 export class GameState {
   readonly clock: GameClock;
   private data: SaveData;
   private weatherModel: WeatherModel;
+  private demoModel: DemoModel;
 
   constructor() {
     this.data = loadSave();
     this.clock = new GameClock(this.data.minutes);
     this.weatherModel = new WeatherModel(this.data.weather);
+    this.demoModel = new DemoModel(this.data.demo);
   }
 
   get weather(): WeatherModel {
     return this.weatherModel;
+  }
+
+  get demo(): DemoModel {
+    return this.demoModel;
   }
 
   /** True once per day per NPC: the first call of the day claims the gift. */
@@ -176,6 +193,25 @@ export class GameState {
     return added;
   }
 
+  // ------------------------------------------------------------ Taler
+  get coins(): number {
+    return this.data.coins;
+  }
+
+  addCoins(amount: number): void {
+    this.data.coins += amount;
+  }
+
+  /** Buys one `item` for `price` Taler from `npc`. */
+  buy(item: string, price: number, npc: string): BuyResult {
+    if (this.data.coins < price) return 'poor';
+    if (this.itemCount(item) >= (itemDef(item).max ?? DEFAULT_ITEM_MAX)) return 'full';
+    this.data.coins -= price;
+    this.addItem(item, 1);
+    emitGame({ type: 'item-bought', item, price, npc });
+    return 'ok';
+  }
+
   useItem(id: string): boolean {
     if (this.itemCount(id) <= 0) return false;
     this.data.items[id]--;
@@ -220,6 +256,7 @@ export class GameState {
     this.data = freshSave();
     this.clock.set(this.data.minutes);
     this.weatherModel = new WeatherModel(this.data.weather);
+    this.demoModel = new DemoModel(this.data.demo);
   }
 }
 

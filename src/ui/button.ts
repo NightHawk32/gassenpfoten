@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { pixelRatio } from '../systems/viewport';
+import { attachBackdrop, BACKDROP, UI } from './backdrop';
 
 /** Minimum size of a tap target in CSS pixels (Apple/Google guidelines). */
 export const MIN_TAP_SIZE = 44;
@@ -14,8 +15,6 @@ export interface Button {
   setEnabled(on: boolean): void;
 }
 
-const BG = '#1d2433cc';
-const BG_ACTIVE = '#5a7ab0ee';
 
 /**
  * A text button that works with mouse and touch. With `onHold` it reports
@@ -30,8 +29,9 @@ export function makeButton(
   let enabled = true;
   let pressed = false;
   const obj = scene.add
-    .text(0, 0, label(), { fontFamily: 'Georgia, serif', color: '#fff6d5', backgroundColor: BG, align: 'center' })
+    .text(0, 0, label(), { fontFamily: 'Georgia, serif', color: UI.text, align: 'center' })
     .setInteractive({ useHandCursor: true });
+  const backdrop = attachBackdrop(obj, BACKDROP.button);
 
   const release = (fire: boolean) => {
     if (!pressed) return;
@@ -58,9 +58,10 @@ export function makeButton(
       const minTap = MIN_TAP_SIZE * pixelRatio();
       const padY = Math.max(Math.round(5 * s), Math.ceil((minTap - font * 1.25) / 2));
       obj.setFontSize(font).setPadding(padX, padY, padX, padY);
+      backdrop.setScale(s);
     },
     setActive(on) {
-      obj.setBackgroundColor(on ? BG_ACTIVE : BG);
+      backdrop.setStyle(on ? BACKDROP.active : BACKDROP.button);
     },
     setEnabled(on) {
       enabled = on;

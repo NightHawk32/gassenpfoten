@@ -2,6 +2,7 @@ import { CATS, type CatDef } from '../data/cats';
 import type { NpcDef } from '../data/npcs';
 import { t, type TextKey } from '../i18n/i18n';
 import { gameState, LEVEL } from './gameState';
+import { atStep } from './quests';
 
 export interface DialogueLine {
   name: string;
@@ -20,6 +21,7 @@ function isNightCat(cat: CatDef): boolean {
  * until you have fed it, then what it likes or its favourite petting spot.
  */
 function hint(npc: NpcDef): string | null {
+  if (!npc.hints) return null;
   const state = gameState();
   const candidates = CATS.filter(
     (c) => !c.bande && state.cat(c.id).level < LEVEL.FRIEND && (npc.hints === 'any' || isNightCat(c)),
@@ -59,18 +61,32 @@ export function talk(npc: NpcDef): DialogueLine[] {
   const state = gameState();
   const lines: string[] = [t(`npc.${npc.id}.greet.${Math.floor(Math.random() * npc.greetings)}` as TextKey)];
 
-  if (npc.gift && state.claimNpcGift(npc.id)) {
-    const added = state.addItem(npc.gift.item, npc.gift.amount);
-    lines.push(added ? t('npc.gift', { amount: added, item: item(npc.gift.item) }) : t('npc.giftFull', { item: item(npc.gift.item) }));
+  if ((npc.gift || npc.giftCoins) && state.claimNpcGift(npc.id)) {
+    if (npc.gift) {
+      const added = state.addItem(npc.gift.item, npc.gift.amount);
+      lines.push(added ? t('npc.gift', { amount: added, item: item(npc.gift.item) }) : t('npc.giftFull', { item: item(npc.gift.item) }));
+    }
+    if (npc.giftCoins) {
+      state.addCoins(npc.giftCoins);
+      lines.push(t(`npc.${npc.id}.giftCoins` as TextKey, { amount: npc.giftCoins }));
+    }
   }
-  for (const story of npc.story ?? []) {
-    if (story.ifFlag && !state.hasFlag(story.ifFlag)) continue;
-    if (!state.hasFlag(story.unlessFlag)) lines.push(t(`npc.${npc.id}.${story.line}` as TextKey));
+  // Decide all story lines first: a `give` may not change which lines are said.
+  const story = (npc.story ?? []).filter(
+    (s) =>
+      (!s.ifFlag || state.hasFlag(s.ifFlag)) && (!s.unlessFlag || !state.hasFlag(s.unlessFlag)) && (!s.ifStep || atStep(s.ifStep)),
+  );
+  for (const s of story) {
+    lines.push(t(`npc.${npc.id}.${s.line}` as TextKey));
+    if (s.give) {
+      const added = state.addItem(s.give.item, s.give.amount);
+      if (added) lines.push(t('npc.gift', { amount: added, item: item(s.give.item) }));
+    }
   }
   const h = hint(npc);
   if (h) lines.push(h);
   if (npc.forecast) lines.push(forecast());
-  if (!h && !npc.forecast) lines.push(t('npc.nothing'));
+  if (!h && !npc.forecast && !story.length && !npc.shop) lines.push(t('npc.nothing'));
 
   return lines.map((text) => ({ name: npc.name, text }));
 }
