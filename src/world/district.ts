@@ -16,6 +16,8 @@ import { WorldGrid, type Point } from './grid';
  *   Neckar: m quay (Neckarmauer, walkable) · M river wall · Z plaster house
  *   z plaster window · Y tower wall · y tower window · P tower roof
  *   j jetty · K Stocherkahn (walkable) · b bridge deck · N bridge parapet
+ *   Bota: G greenhouse glass · q greenhouse roof · , gravel path (walkable)
+ *   X hedge · e flower/herb bed
  */
 export interface Exit extends Point {
   /** Where this exit leads. Omitted = a dead end where cats come and go. */
@@ -49,7 +51,7 @@ export interface District {
   benches: Point[];
 }
 
-const WALKABLE = new Set(['.', 'g', 'A', 's', 'V', 'm', 'j', 'K', 'b']);
+const WALKABLE = new Set(['.', 'g', 'A', 's', 'V', 'm', 'j', 'K', 'b', ',']);
 
 const BASE_TILE: Record<string, number> = {
   '#': TILE.VOID,
@@ -79,6 +81,11 @@ const BASE_TILE: Record<string, number> = {
   K: TILE.BOAT,
   b: TILE.BRIDGE,
   N: TILE.PARAPET,
+  G: TILE.GLASS,
+  q: TILE.GLASS_ROOF,
+  ',': TILE.GRAVEL,
+  X: TILE.HEDGE,
+  e: TILE.BED,
 };
 
 const PLASTER_WALLS = [TILE.PLASTER_A, TILE.PLASTER_B, TILE.PLASTER_C];
@@ -95,6 +102,15 @@ function plasterColour(row: string, x: number): number {
 }
 
 const COBBLES = [TILE.COBBLE, TILE.COBBLE_2, TILE.COBBLE_3];
+
+/** Lamps and benches stand on whatever ground is next to them: cobbles, grass or gravel. */
+function groundAround(map: string[], x: number, y: number): string {
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, 1], [0, -1]]) {
+    const c = map[y + dy]?.[x + dx];
+    if (c && WALKABLE.has(c)) return c;
+  }
+  return '.';
+}
 
 export function buildDistrict(def: DistrictDef): District {
   const { map } = def;
@@ -113,7 +129,8 @@ export function buildDistrict(def: DistrictDef): District {
     const row: number[] = [];
     for (let x = 0; x < width; x++) {
       const ch = map[y][x];
-      let id = BASE_TILE[ch] ?? COBBLES[(x * 7 + y * 13) % 3];
+      const ground = ch === 'L' || ch === 'B' ? groundAround(map, x, y) : ch;
+      let id = BASE_TILE[ground] ?? COBBLES[(x * 7 + y * 13) % 3];
       // Roof rows above a wall get a gutter edge.
       const below = map[y + 1]?.[x];
       if (ch === 'R' && below !== 'R') id = TILE.ROOF_EDGE;

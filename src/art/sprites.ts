@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { itemsOfCategory } from '../data/items';
 import { buildCatFrames, CAT_FRAME, CAT_SIZE, catPalette, type CatLook, type Region } from './catArt';
-import { makePixelTexture, mirror, withRows, type Palette } from './pixelArt';
+import { makePixelTexture, withRows, type Palette } from './pixelArt';
 
 /*
  * Placeholder sprites for the M1 prototype (own work, CC0).
@@ -25,6 +25,10 @@ export type Coat =
   | 'cream-longhair'
   | 'taupe-spotted'
   | 'maine-coon'
+  | 'lilac'
+  | 'smoke'
+  | 'cream-tabby'
+  | 'blue-tabby'
   | 'orange';
 
 /** Orange is reserved for the Rote Bande (concept §4.7). */
@@ -76,6 +80,26 @@ export const COATS: Record<Coat, { look: CatLook; palette: Palette }> = {
     look: { pattern: 'tabby', longhair: true },
     palette: catPalette({ fur: '#8a6a4e', shadow: '#6a4e38', light: '#a8866a', pattern: '#3e2a1e', eyes: '#e0b040', white: '#efe2cc' }),
   },
+  // Nepeta: pale lilac-grey with wide, glassy green eyes.
+  lilac: {
+    look: { pattern: 'plain' },
+    palette: catPalette({ fur: '#b8a8b8', shadow: '#968598', light: '#d2c4d0', pattern: '#b8a8b8', eyes: '#7ae05a' }),
+  },
+  // Rasta: a smoky, shaggy longhair.
+  smoke: {
+    look: { pattern: 'tabby', longhair: true },
+    palette: catPalette({ fur: '#5e5a62', shadow: '#46424a', light: '#7a7680', pattern: '#3a363e', eyes: '#d8c05a', white: '#c8c2ca' }),
+  },
+  // Dusel: a sleepy cream tabby.
+  'cream-tabby': {
+    look: { pattern: 'tabby' },
+    palette: catPalette({ fur: '#e2c89a', shadow: '#c4a878', light: '#f2dcb4', pattern: '#b8925e', eyes: '#c8a040', white: '#fbf0dc' }),
+  },
+  // Zappel: a jittery blue-grey tabby.
+  'blue-tabby': {
+    look: { pattern: 'tabby' },
+    palette: catPalette({ fur: '#7a8aa0', shadow: '#5e6c80', light: '#96a4b8', pattern: '#4a566a', eyes: '#f0a030', white: '#e4e8ee' }),
+  },
   orange: {
     look: { pattern: 'tabby', mean: true },
     palette: catPalette({ fur: '#e8873a', shadow: '#c06a28', light: '#f4a45a', pattern: '#a8501a', eyes: '#9ad04a', white: '#f6dcb8' }),
@@ -116,20 +140,12 @@ const P_FRONT = [
   '....ooo..ooo....',
   '................',
 ];
-const WALK_LEGS = {
-  15: '....opo..opo....',
-  16: '...obo....opo...',
-  17: '...ooo....obo...',
-  18: '..........ooo...',
-};
-const P_FRONT_WALK = withRows(P_FRONT, WALK_LEGS);
 const P_BACK = withRows(P_FRONT, {
   3: '....ohhhhhho....',
   4: '....ohhhhhho....',
   5: '....ohhhhhho....',
   7: '....ojjjjjjo....',
 });
-const P_BACK_WALK = withRows(P_BACK, WALK_LEGS);
 const P_SIDE = [
   '......oooo......',
   '.....ohhhho.....',
@@ -152,17 +168,108 @@ const P_SIDE = [
   '.....ooooo......',
   '................',
 ];
-const P_SIDE_WALK = withRows(P_SIDE, {
-  15: '....opo.opo.....',
-  16: '...opo...opo....',
-  17: '...obbo..obbo...',
-  18: '...oooo..oooo...',
-});
 
 export const PLAYER_FRAME = { down: 0, up: 3, side: 6 } as const;
 
 const PLAYER_PALETTE: Palette = {
   o: '#1e1a24', h: '#5a3a2a', s: '#f0c8a0', e: '#2a2030', w: '#c84a3a', j: '#3d5a80', p: '#4a4458', b: '#2a2430',
+};
+
+// ---------------------------------------------------------------- player (detailed)
+// The NPCs above are variants of the plain figure; the player gets more detail:
+// H/d hair highlight and shadow · c cheeks · x scarf stripe, W scarf shadow ·
+// l/J jacket light and shadow side · z zipper · P trouser shadow · B boot highlight.
+// Light comes from the top left.
+const PD_FRONT = [
+  '......oooo......',
+  '.....ohHHho.....',
+  '....ohHhhhdo....',
+  '....ohssssdo....',
+  '....osesseso....',
+  '....oscsscso....',
+  '.....owxwWo.....',
+  '....olwxzjJo....',
+  '...oljwxzjjJo...',
+  '...oljWxzjjJo...',
+  '...oljjjzjjJo...',
+  '...osljjzjJSo...',
+  '....oJJJJJJo....',
+  '....opppppPo....',
+  '....opppppPo....',
+  '....opo..oPo....',
+  '....oBo..oBo....',
+  '....obo..obo....',
+  '....ooo..ooo....',
+  '................',
+];
+/** Legs only, so the scarf and zipper don't flip sides between steps. */
+const PD_LEGS_A = {
+  15: '....opo..oPo....',
+  16: '...oBo....oPo...',
+  17: '...ooo....oBo...',
+  18: '..........ooo...',
+};
+const PD_LEGS_B = {
+  15: '....opo..oPo....',
+  16: '...oPo....oBo...',
+  17: '...oBo....ooo...',
+  18: '...ooo..........',
+};
+const PD_BACK = withRows(PD_FRONT, {
+  1: '.....ohHHho.....',
+  2: '....ohHhhhdo....',
+  3: '....ohhhhhdo....',
+  4: '....ohhhhhdo....',
+  5: '....odhhhhdo....',
+  6: '.....owWwWo.....',
+  7: '....oljjjjJo....',
+  8: '...oljJJJJjJo...',
+  9: '...oljjJJjjJo...',
+  10: '...oljjjjjjJo...',
+  11: '...osljjjjJSo...',
+});
+const PD_SIDE = [
+  '......oooo......',
+  '.....ohHHho.....',
+  '....ohHhhhho....',
+  '....odhsssso....',
+  '....odhssseo....',
+  '....ohssscso....',
+  '....owwxwWo.....',
+  '...oWojjjJo.....',
+  '.....oljjJo.....',
+  '.....oljjJo.....',
+  '.....oljsJo.....',
+  '.....oljSJo.....',
+  '.....oJJJJo.....',
+  '.....oppPPo.....',
+  '.....opppPo.....',
+  '.....oppPo......',
+  '.....oBBBo......',
+  '.....obbbo......',
+  '.....ooooo......',
+  '................',
+];
+const PD_SIDE_WALK = withRows(PD_SIDE, {
+  15: '....opo.oPo.....',
+  16: '...oBo...oBo....',
+  17: '...obbo..obbo...',
+  18: '...oooo..oooo...',
+});
+const PLAYER_DETAIL_PALETTE: Palette = {
+  ...PLAYER_PALETTE,
+  H: '#7c5238',
+  d: '#3e281c',
+  S: '#d4a27c',
+  c: '#e89a88',
+  W: '#963226',
+  x: '#f0dcb0',
+  l: '#5676a2',
+  J: '#2c425f',
+  z: '#a4b2c6',
+  P: '#363244',
+  b: '#6a4428',
+  B: '#8c6040',
 };
 
 // ---------------------------------------------------------------- NPCs
@@ -201,6 +308,74 @@ const NPC_LOOKS: Record<string, { patch: Record<number, string>; palette: Palett
     },
     palette: { ...PLAYER_PALETTE, h: '#2e2622', g: '#4a4a5a', w: '#f4f2ee', r: '#3e5f8e', k: '#e8c050', j: '#56565f', p: '#3a3a44', b: '#1e1a20' },
   },
+  // Günni: hood up, shades on, a pale face in the shadow. Very shady.
+  guenni: {
+    patch: {
+      1: '.....ojjjjo.....',
+      2: '....ojjjjjjo....',
+      3: '....ojssssjo....',
+      4: '....ojggggjo....',
+      5: '....ojssssjo....',
+      6: '.....ojjjjo.....',
+      7: '....ojjjjjjo....',
+    },
+    palette: { ...PLAYER_PALETTE, j: '#3a4238', s: '#c8ac90', g: '#0e0e12', w: '#3a4238', p: '#2a3040', b: '#1c1c20' },
+  },
+  // Dieter Thomas Kuhn: huge blond curls, big shades, frilly shirt, glam jacket, flares.
+  kuhn: {
+    patch: {
+      0: '....oooooooo....',
+      1: '...ohhhhhhhho...',
+      2: '..ohhhhhhhhhho..',
+      3: '..ohhhsssshhho..',
+      4: '..ohhggggggghho.',
+      5: '..ohhsssssshho..',
+      6: '...ohwwwwwwho...',
+      7: '....ojwwwwjo....',
+      15: '...oppo..oppo...',
+      16: '...oppo..oppo...',
+      17: '..obbbo..obbbo..',
+      18: '..ooooo..ooooo..',
+    },
+    palette: { ...PLAYER_PALETTE, h: '#f0cc66', g: '#16141c', w: '#fff4ee', j: '#7a2e9a', p: '#e0a040', b: '#f4f0e8' },
+  },
+  // The demo: linen, knitwear and a lot of conviction.
+  'vegan-1': {
+    patch: { 1: '.....owwwwo.....', 2: '....owwwwwwo....', 6: '.....ohhhho.....' },
+    palette: { ...PLAYER_PALETTE, h: '#b8502c', w: '#5a9a4a', j: '#e2d4ae', p: '#5a6a3a', b: '#6a4a30' },
+  },
+  'vegan-2': {
+    patch: { 2: '...ohhhhhhhho...', 3: '...ohssssssho...', 5: '...ohssssssho...', 6: '...ohwwwwwwho...' },
+    palette: { ...PLAYER_PALETTE, h: '#6e5034', w: '#e08a3a', j: '#6a7e52', p: '#44445a', b: '#3a2a20' },
+  },
+  'vegan-3': {
+    patch: { 1: '.....ohhhho.....', 2: '....ohhhhhho....' },
+    palette: { ...PLAYER_PALETTE, h: '#9a6ad8', w: '#f0e060', j: '#4a7a8a', p: '#3a3a48', b: '#2a2430' },
+  },
+};
+
+// ---------------------------------------------------------------- placards (12×14, carried above the head)
+const PLACARD_BOARD = [
+  'oooooooooooo',
+  'offffffffffo',
+  'offffffffffo',
+  'offffffffffo',
+  'offffffffffo',
+  'offffffffffo',
+  'offffffffffo',
+  'oooooooooooo',
+  '.....oo.....',
+  '.....oo.....',
+  '.....oo.....',
+  '.....oo.....',
+  '.....oo.....',
+  '.....oo.....',
+];
+/** Leaf, carrot and heart: the slogans are in the bubbles. */
+const PLACARDS: Record<string, Record<number, string>> = {
+  'placard-leaf': { 2: 'offfffxxfffo', 3: 'offffxxxxffo', 4: 'offfxxxxfffo', 5: 'offffyfffffo' },
+  'placard-carrot': { 1: 'offffffyyffo', 2: 'offfffzzfffo', 3: 'offffzzzfffo', 4: 'offfzzzffffo', 5: 'offzzffffffo' },
+  'placard-heart': { 2: 'offxxffxxffo', 3: 'offxxxxxxffo', 4: 'offfxxxxfffo', 5: 'offffxxffffo' },
 };
 
 // ---------------------------------------------------------------- icons (8×8)
@@ -282,8 +457,17 @@ export function registerSprites(scene: Phaser.Scene): void {
   makePixelTexture(
     scene,
     'player',
-    [P_FRONT, P_FRONT_WALK, mirror(P_FRONT_WALK), P_BACK, P_BACK_WALK, mirror(P_BACK_WALK), P_SIDE, P_SIDE_WALK],
-    PLAYER_PALETTE,
+    [
+      PD_FRONT,
+      withRows(PD_FRONT, PD_LEGS_A),
+      withRows(PD_FRONT, PD_LEGS_B),
+      PD_BACK,
+      withRows(PD_BACK, PD_LEGS_A),
+      withRows(PD_BACK, PD_LEGS_B),
+      PD_SIDE,
+      PD_SIDE_WALK,
+    ],
+    PLAYER_DETAIL_PALETTE,
   );
   const walk = (name: string, frames: number[], rate: number) =>
     scene.anims.create({
@@ -309,6 +493,11 @@ export function registerSprites(scene: Phaser.Scene): void {
     // The face (rows 3–5) is not seen from behind.
     const backPatch = Object.fromEntries(Object.entries(patch).filter(([row]) => Number(row) < 3 || Number(row) > 5));
     makePixelTexture(scene, `npc-${look}`, [withRows(P_FRONT, patch), withRows(P_BACK, backPatch), withRows(P_SIDE, sidePatch)], palette);
+  }
+
+  for (const [key, rows] of Object.entries(PLACARDS)) {
+    const palette = { o: '#5a3a22', f: '#e8d8b0', x: key === 'placard-heart' ? '#d84a5a' : '#4e9a40', y: '#4e9a40', z: '#e8822e' };
+    makePixelTexture(scene, key, [withRows(PLACARD_BOARD, rows)], palette);
   }
 
   // The one brain cell all orange cats share (a tiny pink brain).

@@ -33,6 +33,8 @@ export const EV = {
   DIALOGUE_NEXT: 'dialogue-next',
   /** () the conversation was closed */
   DIALOGUE_DONE: 'dialogue-done',
+  /** (npcId: string) open this NPC's shop */
+  SHOP: 'shop',
 } as const;
 
 /** What the player can do with the nearest cat or person. */
@@ -67,7 +69,13 @@ export type GameEvent =
   /** The player took a closer look at an orange cat that froze mid-thought. */
   | { type: 'braincell-observed'; cat: string }
   /** A best friend started following the player. */
-  | { type: 'companion'; cat: string };
+  | { type: 'companion'; cat: string }
+  /** Bought from an NPC's shop for Taler. */
+  | { type: 'item-bought'; item: string; price: number; npc: string }
+  /** The player is on the square while a demo marches through (once per demo). */
+  | { type: 'demo-seen'; area: string }
+  /** The demo has moved on; the cats come back. */
+  | { type: 'demo-ended'; area: string };
 
 export type GameEventType = GameEvent['type'];
 

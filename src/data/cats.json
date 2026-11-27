@@ -481,5 +481,122 @@
     "size": 1.25,
     "requiresFlag": "tutorial-done",
     "companion": true
+  },
+  {
+    "id": "nepeta",
+    "name": "Nepeta",
+    "coat": "lilac",
+    "district": "marktplatz",
+    "phases": [
+      "evening",
+      "night"
+    ],
+    "spots": [
+      "north-alley"
+    ],
+    "likes": [
+      "catnip"
+    ],
+    "dislikes": [
+      "dry",
+      "wet"
+    ],
+    "shyness": 3,
+    "favourite": [
+      "cheeks"
+    ],
+    "noGo": [
+      "belly",
+      "tail"
+    ]
+  },
+  {
+    "id": "rasta",
+    "name": "Rasta",
+    "coat": "smoke",
+    "district": "bota",
+    "requiresFlag": "bota-open",
+    "phases": [
+      "afternoon",
+      "evening",
+      "night"
+    ],
+    "spots": [
+      "dealer-corner",
+      "greenhouse"
+    ],
+    "likes": [
+      "catnip"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 1,
+    "favourite": [
+      "head",
+      "back"
+    ],
+    "noGo": [
+      "tail"
+    ]
+  },
+  {
+    "id": "dusel",
+    "name": "Dusel",
+    "coat": "cream-tabby",
+    "district": "bota",
+    "requiresFlag": "bota-open",
+    "phases": [
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "spots": [
+      "pond",
+      "beds"
+    ],
+    "likes": [
+      "catnip"
+    ],
+    "dislikes": [
+      "dry",
+      "wet"
+    ],
+    "shyness": 2,
+    "favourite": [
+      "belly"
+    ],
+    "noGo": [
+      "chin"
+    ]
+  },
+  {
+    "id": "zappel",
+    "name": "Zappel",
+    "coat": "blue-tabby",
+    "district": "bota",
+    "requiresFlag": "bota-open",
+    "phases": [
+      "evening",
+      "night"
+    ],
+    "spots": [
+      "dealer-corner",
+      "beds"
+    ],
+    "likes": [
+      "catnip"
+    ],
+    "dislikes": [
+      "tuna"
+    ],
+    "shyness": 4,
+    "favourite": [
+      "chin"
+    ],
+    "noGo": [
+      "back",
+      "belly"
+    ]
   }
 ]

@@ -21,7 +21,10 @@ export interface QuestStep {
   count?: number;
 }
 
-export type QuestReward = { type: 'item'; item: string; amount: number } | { type: 'flag'; flag: string };
+export type QuestReward =
+  | { type: 'item'; item: string; amount: number }
+  | { type: 'coins'; amount: number }
+  | { type: 'flag'; flag: string };
 
 export interface QuestDef {
   id: string;
@@ -61,6 +64,14 @@ function alreadyDone(step: QuestStep): boolean {
   if (step.event === 'cat-level') return level >= Number(rest.level ?? 0);
   const need = LEVEL_FOR[step.event];
   return need !== undefined && Object.keys(rest).length === 0 && level >= need;
+}
+
+/** Is `ref` ("questId.stepId") the current step of an active quest? */
+export function atStep(ref: string): boolean {
+  const [id, stepId] = ref.split('.');
+  const def = QUESTS.find((q) => q.id === id);
+  const p = gameState().quest(id);
+  return !!def && !!p && !p.done && def.steps[p.step]?.id === stepId;
 }
 
 export const questTitle = (q: QuestDef) => t(`quest.${q.id}.title` as TextKey);
@@ -143,6 +154,9 @@ class QuestSystem {
       if (r.type === 'item') {
         const added = state.addItem(r.item, r.amount);
         if (added) bus.emit(EV.TOAST, t('quest.reward', { amount: added, item: t(`item.${r.item}` as TextKey) }));
+      } else if (r.type === 'coins') {
+        state.addCoins(r.amount);
+        bus.emit(EV.TOAST, t('quest.reward', { amount: r.amount, item: t('coins') }));
       } else {
         state.setFlag(r.flag);
       }

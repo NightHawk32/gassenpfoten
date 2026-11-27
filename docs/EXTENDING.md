@@ -38,7 +38,15 @@ because existing saves refer to it.
      `key` and `story` are reserved for quest items.
    - `start`: amount in a new game. `dailyRefill`: Frau Häberle's morning delivery.
 2. Add `"item.catnip"` to both language files.
-3. Give it out: as a quest reward, as a daily refill, or (later) from a shop or NPC.
+3. Give it out: as a quest reward, as a daily refill, from an NPC (`gift`, or
+   `give` on a story line) or sell it in a shop (see below).
+
+### Taler (money)
+
+Taler are not an item: they are a number in the save (`coins`, new games
+start with 5) and shown in the HUD and the journal. Players earn them from
+quest rewards (`{ "type": "coins", "amount": 10 }`) and from NPCs with
+`giftCoins` (Boris Palmer pays 2 a day). They spend them in shops.
 
 ## Add a cat
 
@@ -112,6 +120,38 @@ Add an entry to `src/data/npcs.json`:
   first tiles of these spots instead of standing still (Boris Palmer).
 - `"barks": 14` lets the NPC mutter `npc.<id>.bark.0 … 13` in a small bubble
   every 9–16 s while the player is nearby.
+- **NPCs that hand out quests:** a story line with `"ifStep": "questId.stepId"`
+  is only said while that quest is active and at that step. Boris Palmer
+  uses this for his errands: one line for the briefing (`…ask`), one reminder
+  while you are busy and one reaction when you report back (`…report`):
+  ```json
+  { "ifStep": "palmer-kuhn.ask", "line": "kuhn" },
+  { "ifStep": "palmer-kuhn.kuhn", "line": "kuhnWait" },
+  { "ifStep": "palmer-kuhn.report", "line": "kuhnReport" }
+  ```
+  The quest itself is `talk to palmer → do something → talk to palmer`.
+  `ifFlag`, `unlessFlag` and `ifStep` can be combined; all must hold.
+  `"give": { "item": "catnip", "amount": 1 }` hands something over with the line.
+- `"giftCoins": 2` hands out Taler once a day (with `gift`, if any), with the
+  line `npc.<id>.giftCoins` (`{amount}`).
+- **Shops:** `"shop": [{ "item": "catnip", "price": 3 }]` opens a shop menu
+  after the conversation (Günni in the Bota). Buying emits
+  `item-bought {item, price, npc}`, so a quest can say "buy …".
+- `"prop": "placard-leaf"` draws a texture above the NPC's head (demo placards).
+- `"demo": true` marks a demonstrator: they ignore `phases` and only show up
+  during a demo in their district (see below).
+
+### The vegan demo 📢
+
+Now and then a demo marches across the Marktplatz (`src/systems/demo.ts`).
+Like the weather it runs on game time: once per game hour between 09:00 and
+18:00 there is a 12 % chance one starts (not before `tutorial-done`), and it
+lasts 60–105 game minutes. While it is on in a district that has NPCs with
+`"demo": true`, those NPCs march between their `roam` spots chanting their
+barks, every cat there runs away (the companion stays), and no cat comes back
+until it is over. Emits `demo-seen {area}` once per demo while the player is
+there, and `demo-ended {area}`. To let a demo march through another district,
+add demonstrators with that `district`.
 
 ## Add a district (area)
 
@@ -169,7 +209,16 @@ Add an entry to `src/data/quests.json`:
 `phase {phase, day}`, `flag {flag}`, `weather {weather}`, `npc-talked {npc}`,
 `bande-stole {cat, victim}`, `bande-distracted {cat}`,
 `braincell-hop {from, to}` (seen on screen), `braincell-observed {cat}`
-(the player looked at a frozen orange cat), `companion {cat}` (Bello started following).
+(the player looked at a frozen orange cat), `companion {cat}` (Bello started following),
+`item-bought {item, price, npc}`, `demo-seen {area}`, `demo-ended {area}`.
+
+Rewards: `{ "type": "item", "item": "tuna", "amount": 2 }`,
+`{ "type": "coins", "amount": 6 }` (Taler) and `{ "type": "flag", "flag": "…" }`.
+
+A step about one specific cat (`cat-seen`, `cat-fed` or `cat-petted` with only
+`cat` in `match`, or `cat-level`) counts as done right away if the cat's trust
+level already shows it, so meeting a cat early never blocks a quest. Steps
+that also match an item, a reaction or a count wait for the real event.
 
 New mechanics such as photo mode add an event
 type there and emit it with `emitGame(...)`. Quests can then use it

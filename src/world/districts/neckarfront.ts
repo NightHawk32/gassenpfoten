@@ -60,6 +60,8 @@ export const neckarfront: DistrictDef = {
       { x: 31, y: 6 },
     ],
     jonas: [{ x: 23, y: 15 }],
+    // Dieter Thomas Kuhn, by the Hölderlinturm garden.
+    kuhn: [{ x: 12, y: 8 }],
     eberhardsbruecke: [
       { x: 34, y: 21 },
       { x: 35, y: 24 },
