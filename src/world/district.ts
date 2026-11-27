@@ -2,11 +2,10 @@ import { TILE } from '../art/tiles';
 import { WorldGrid, type Point } from './grid';
 
 /**
- * A district (area) is pure data: an ASCII map plus named spots and exits.
- * The engine builds tiles, collision and scenery from it. Add new districts
- * in src/world/districts/ and register them in districts/index.ts
- * (see docs/EXTENDING.md). Later this can be swapped for Tiled JSON maps
- * without changing the District interface.
+ * A district (area) is pure data: an ASCII map plus named spots and exits,
+ * stored as src/world/districts/<id>.json and registered in
+ * districts/index.ts (see docs/EXTENDING.md). The engine builds tiles,
+ * collision and scenery from it.
  *
  * Map legend:
  *   # edge · . cobbles · g grass · R roof · W wall · w window · D door
@@ -22,10 +21,14 @@ import { WorldGrid, type Point } from './grid';
 export interface Exit extends Point {
   /** Where this exit leads. Omitted = a dead end where cats come and go. */
   to?: { district: string; entry: string };
+  /** Free-text remark for whoever edits the map; ignored by the game. */
+  note?: string;
 }
 
 export interface DistrictDef {
   id: string;
+  /** What the area looks like, for whoever edits the map; ignored by the game. */
+  description?: string;
   /** Rows of map characters, all the same length. */
   map: string[];
   /** Named places where cats sit, NPCs stand or quest things happen (tile coordinates). */

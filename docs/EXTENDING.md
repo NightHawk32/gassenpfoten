@@ -23,7 +23,7 @@ because existing saves refer to it.
 |---|---|---|
 | Items | `src/data/items.json` | `src/data/items.ts` |
 | Cats | `src/data/cats.json` | `src/data/cats.ts`, `src/entities/Cat.ts` |
-| Districts (areas) | `src/world/districts/*.ts` | `src/world/district.ts`, `districts/index.ts` |
+| Districts (areas) | `src/world/districts/*.json` | `src/world/district.ts`, `districts/index.ts` |
 | Quests (missions, story arcs) | `src/data/quests.json` | `src/systems/quests.ts` |
 | Game events | `src/systems/events.ts` (`GameEvent`) | emitted by `GameScene`, `GameState` |
 
@@ -155,15 +155,19 @@ add demonstrators with that `district`.
 
 ## Add a district (area)
 
-1. Copy `src/world/districts/marktplatz.ts` to e.g. `neckarfront.ts` and draw
-   the map with the legend in `src/world/district.ts`. All rows must have the
-   same length. The build checks that every spot, exit and entry is walkable.
-2. Register it in `src/world/districts/index.ts`.
+1. Copy `src/world/districts/marktplatz.json` to e.g. `neckarinsel.json`, set
+   `id` and draw the map rows with the legend in `src/world/district.ts`. All
+   rows must have the same length. `description` and an exit's `note` are
+   remarks for map editors; the game ignores them. When a district is first
+   loaded, the game checks that every spot, exit and entry is walkable.
+2. Import it in `src/world/districts/index.ts` and add it to `DEFS`. `tsc`
+   then checks the file against `DistrictDef`, and the game checks at
+   startup that every exit leads to a district and entry that exist.
 3. Add `"spot.<name>"` for each spot to both language files.
 4. Add `"district.<id>"` (the place name shown in the HUD and journal) to both
    language files.
 5. Connect districts through exits:
-   `{ x: 6, y: 28, to: { district: 'neckarfront', entry: 'from-marktplatz' } }`.
+   `{ "x": 6, "y": 28, "to": { "district": "neckarfront", "entry": "from-marktplatz" } }`.
    Walking onto such an exit fades to the other district and places the
    player at the named entry; add the matching entry (and an exit back) on the
    other side. Put entries a tile or two inside, not on the exit itself.
