@@ -4,6 +4,7 @@ import { catTextureKey } from '../art/sprites';
 import { onLanguageChange, t, toggleLanguage, type TextKey } from '../i18n/i18n';
 import { daylight } from '../systems/clock';
 import { gameState } from '../systems/gameState';
+import { isSnowSeason } from '../systems/season';
 import { isTouchDevice, pixelScale, uiScale } from '../systems/viewport';
 import { UI } from '../ui/backdrop';
 import { makeButton, toggleFullscreen, type Button } from '../ui/button';
@@ -43,6 +44,9 @@ export class TitleScene extends Phaser.Scene {
   private langBtn!: Button;
   private fullBtn?: Button;
   private starting = false;
+  /** December: snow falls over the title screen. */
+  private snow: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private readonly snowZone = new Phaser.Geom.Rectangle(0, 0, 1, 1);
 
   constructor() {
     super('Title');
@@ -67,6 +71,16 @@ export class TitleScene extends Phaser.Scene {
     this.roofs = this.add.graphics();
     this.cats = (['tuxedo', 'black', 'brown-tabby'] as const).map((coat) => this.add.image(0, 0, catTextureKey(coat), 0).setOrigin(0.5, 0.92));
     this.cats[1].setFlipX(true);
+    this.snow = isSnowSeason()
+      ? this.add.particles(0, 0, 'snowflake-big', {
+          emitZone: { type: 'random', source: this.snowZone, quantity: 1 } as Phaser.Types.GameObjects.Particles.EmitZoneData,
+          speedY: { min: 30, max: 70 },
+          speedX: { min: -20, max: 10 },
+          lifespan: { min: 4000, max: 7000 },
+          alpha: { start: 0.9, end: 0, ease: 'Quad.easeIn' },
+          frequency: 60,
+        })
+      : null;
 
     this.logo = this.add.image(0, 0, LOGO_KEY).setOrigin(0.5, 0.5);
     this.labels = {
@@ -154,6 +168,8 @@ export class TitleScene extends Phaser.Scene {
     // Cats sitting on three of the roof ridges.
     const pick = [0.18, 0.52, 0.83].map((f) => peaks[Math.min(peaks.length - 1, Math.floor(f * peaks.length))]);
     this.cats.forEach((cat, i) => cat.setScale(px).setPosition(Math.round(pick[i].x), Math.round(pick[i].y + 7 * px)));
+    this.snowZone.setTo(0, -20 * s, w, h);
+    this.snow?.setParticleScale(px);
 
     // Darken the bottom edge so the small print stays readable over the windows.
     const shadeTop = h - 60 * s;

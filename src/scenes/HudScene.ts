@@ -10,12 +10,12 @@ import { bus, EV, type InteractPrompt } from '../systems/events';
 import { gameState, LEVEL } from '../systems/gameState';
 import { QUESTS, questTitle, quests, stepText } from '../systems/quests';
 import { isTouchDevice, pixelScale, uiScale } from '../systems/viewport';
-import type { Weather } from '../systems/weather';
+import { weatherName } from '../systems/season';
 import { attachBackdrop, BACKDROP, UI, type Backdrop } from '../ui/backdrop';
 import { makeButton, toggleFullscreen, type Button } from '../ui/button';
 
 const TOAST_SECONDS = 4.5;
-const WEATHER_ICON: Record<Weather, string> = { sunny: '☀️', cloudy: '☁️', rain: '🌧️', fog: '🌫️' };
+const WEATHER_ICON: Record<string, string> = { sunny: '☀️', cloudy: '☁️', rain: '🌧️', fog: '🌫️', snow: '🌨️' };
 const MAX_TOASTS = 3;
 /** Speaker's name tag on the top edge of the dialogue box. */
 const NAME_TAG = { fill: 0x6a3a58, alpha: 1, radius: 6, border: UI.border, borderAlpha: 0.85, shine: true };
@@ -173,7 +173,10 @@ export class HudScene extends Phaser.Scene {
     // phones), they get the first row and the clock moves below them.
     const topButtons = [this.fullBtn, this.langBtn, this.journalBtn].filter((b): b is Button => !!b);
     const rowW = topButtons.reduce((sum, b) => sum + b.obj.width + m, 0);
+    this.clockText.setWordWrapWidth(null);
     const narrow = m + this.clockText.width + m + rowW > w;
+    // Portrait phones: the clock line wraps instead of running off the screen.
+    if (narrow) this.clockText.setWordWrapWidth(w - m * 2, true);
     let x = w - m;
     for (const b of topButtons) {
       b.obj.setOrigin(1, 0).setPosition(x, m);
@@ -219,7 +222,7 @@ export class HudScene extends Phaser.Scene {
     const state = gameState();
     const place = t(`district.${state.district}` as TextKey);
     const w = state.weather.current;
-    const icon = w === 'sunny' && clock.phase === 'night' ? '🌙' : WEATHER_ICON[w];
+    const icon = w === 'sunny' && clock.phase === 'night' ? '🌙' : WEATHER_ICON[weatherName(w)];
     this.clockText.setText(
       `${place} · ${t('day')} ${clock.day} · ${clock.timeString} · ${t(`phase.${clock.phase}` as TextKey)} · ${icon} · 🪙 ${state.coins}`,
     );
@@ -355,7 +358,9 @@ export class HudScene extends Phaser.Scene {
     const treats = itemsOfCategory('treat');
     const buttons = treats.map((item, i) => {
       const count = state.itemCount(item.id);
-      const b = makeButton(this, () => `${i + 1}  ${t(`item.${item.id}` as TextKey)} ×${count}`, () => this.chooseTreat(item.id));
+      // Number keys pick a treat on a keyboard; on phones the number would only confuse.
+      const key = isTouchDevice() ? '' : `${i + 1}  `;
+      const b = makeButton(this, () => `${key}${t(`item.${item.id}` as TextKey)} ×${count}`, () => this.chooseTreat(item.id));
       b.setEnabled(count > 0);
       b.obj.setDepth(40);
       return b;
@@ -419,7 +424,7 @@ export class HudScene extends Phaser.Scene {
         this,
         () =>
           t('shop.item', {
-            n: i + 1,
+            key: isTouchDevice() ? '' : `${i + 1}  `,
             item: t(`item.${entry.item}` as TextKey),
             price: entry.price,
             count: gameState().itemCount(entry.item),
@@ -582,7 +587,7 @@ export class HudScene extends Phaser.Scene {
         text(t('journal.when', { phases: list(cat.phases, 'phase') }), 11, '#c9c3d6', indent);
         const habits = (['only', 'prefers', 'avoids'] as const)
           .filter((k) => cat.weather?.[k]?.length)
-          .map((k) => t(`journal.weather.${k}`, { list: list(cat.weather![k]!, 'weather') }));
+          .map((k) => t(`journal.weather.${k}`, { list: list(cat.weather![k]!.map(weatherName), 'weather') }));
         if (habits.length) text(t('journal.weather', { text: habits.join(' · ') }), 11, '#c9c3d6', indent);
         if (p.level >= LEVEL.FED && !cat.bande) {
           text(t('journal.likes', { likes: list(cat.likes, 'item'), dislikes: list(cat.dislikes, 'item') }), 11, '#c9c3d6', indent);

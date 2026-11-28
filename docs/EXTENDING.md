@@ -25,6 +25,7 @@ because existing saves refer to it.
 | Cats | `src/data/cats.json` | `src/data/cats.ts`, `src/entities/Cat.ts` |
 | Districts (areas) | `src/world/districts/*.json` | `src/world/district.ts`, `districts/index.ts` |
 | Quests (missions, story arcs) | `src/data/quests.json` | `src/systems/quests.ts` |
+| Calendar events (Christmas market) | `src/data/events.json` | `src/systems/season.ts` |
 | Game events | `src/systems/events.ts` (`GameEvent`) | emitted by `GameScene`, `GameState` |
 
 ## Add an item
@@ -152,6 +153,33 @@ barks, every cat there runs away (the companion stays), and no cat comes back
 until it is over. Emits `demo-seen {area}` once per demo while the player is
 there, and `demo-ended {area}`. To let a demo march through another district,
 add demonstrators with that `district`.
+
+### Calendar events and snow 🎄
+
+Some things follow the real date, not the in-game clock
+(`src/systems/season.ts`). In December:
+
+- **Snow.** Roofs, lawns and wall tops are white, the cobbles get a dusting,
+  rain falls as snow (shown as `weather.snow`, toast `toast.weather.snow`) and
+  grey skies bring a few flakes. Cats treat snow like rain. The title screen
+  snows too.
+- **Events** from `src/data/events.json` are on in their `months`:
+
+  ```json
+  { "id": "christmas-market", "months": [12], "district": "marktplatz",
+    "flag": "christmas-market",
+    "props": [{ "type": "stall", "variant": "treats", "x": 9, "y": 10 },
+              { "type": "tree", "x": 20, "y": 17 }] }
+  ```
+
+  A `stall` blocks its tile and the one to the right, a `tree` one tile; the
+  game refuses props on spots, entries, exits or solid ground (checked in
+  every month). Stall colours are `STALL_VARIANTS` in `src/art/festive.ts`.
+  While the event is on, its `flag` is set (quests can `requiresFlag` it) and
+  cats and NPCs with `"event": "<id>"` show up. The first visit to the
+  district shows `toast.event.<id>`.
+
+Preview any month by adding `?month=12` (1–12) to the URL.
 
 ## Add a district (area)
 

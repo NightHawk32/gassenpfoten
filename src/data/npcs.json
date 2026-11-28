@@ -233,5 +233,55 @@
     "phases": [],
     "greetings": 3,
     "barks": 6
+  },
+  {
+    "id": "marlies",
+    "name": "Marlies",
+    "look": "marlies",
+    "district": "marktplatz",
+    "spot": "marlies",
+    "event": "christmas-market",
+    "phases": [
+      "midday",
+      "afternoon",
+      "evening"
+    ],
+    "greetings": 4,
+    "barks": 6,
+    "shop": [
+      {
+        "item": "goose",
+        "price": 4
+      },
+      {
+        "item": "chicken",
+        "price": 2
+      }
+    ],
+    "story": [
+      {
+        "ifStep": "christmas-market.marlies",
+        "line": "intro"
+      },
+      {
+        "ifStep": "christmas-market.report",
+        "line": "thanks"
+      }
+    ]
+  },
+  {
+    "id": "gerd",
+    "name": "Glühwein-Gerd",
+    "look": "gerd",
+    "district": "marktplatz",
+    "spot": "gerd",
+    "event": "christmas-market",
+    "phases": [
+      "afternoon",
+      "evening"
+    ],
+    "greetings": 4,
+    "barks": 8,
+    "forecast": true
   }
 ]

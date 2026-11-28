@@ -598,5 +598,34 @@
       "back",
       "belly"
     ]
+  },
+  {
+    "id": "zimtstern",
+    "name": "Zimtstern",
+    "coat": "cream-tabby",
+    "district": "marktplatz",
+    "event": "christmas-market",
+    "phases": [
+      "afternoon",
+      "evening",
+      "night"
+    ],
+    "spots": [
+      "christmas-market"
+    ],
+    "likes": [
+      "goose",
+      "tuna"
+    ],
+    "dislikes": [
+      "dry"
+    ],
+    "shyness": 2,
+    "favourite": [
+      "cheeks"
+    ],
+    "noGo": [
+      "tail"
+    ]
   }
 ]

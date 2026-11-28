@@ -22,6 +22,12 @@ export class WorldGrid {
     private readonly solid: boolean[],
   ) {}
 
+  /** Blocks or frees a tile (e.g. a market stall that is only there in December). */
+  setSolid(tx: number, ty: number, solid: boolean): void {
+    if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return;
+    this.solid[ty * this.width + tx] = solid;
+  }
+
   isSolid(tx: number, ty: number): boolean {
     if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return true;
     return this.solid[ty * this.width + tx];

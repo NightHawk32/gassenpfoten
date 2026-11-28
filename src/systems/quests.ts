@@ -108,7 +108,20 @@ class QuestSystem {
     return stepText(first.def, first.step) + progress;
   }
 
+  /** True while events are being handled, so flags set by rewards don't start a second pass. */
+  private busy = false;
+
   private onEvent(event: GameEvent): void {
+    const wasBusy = this.busy;
+    this.busy = true;
+    try {
+      this.handle(event, wasBusy);
+    } finally {
+      this.busy = wasBusy;
+    }
+  }
+
+  private handle(event: GameEvent, nested: boolean): void {
     const state = gameState();
     let changed = false;
     for (const { def, step } of this.active()) {
@@ -120,6 +133,8 @@ class QuestSystem {
       this.advance(def);
     }
     if (changed) this.settle(true, true);
+    // A flag set from outside a quest (e.g. a calendar event) can unlock quests right away.
+    else if (event.type === 'flag' && !nested) this.settle(true, false);
   }
 
   private advance(def: QuestDef): void {
@@ -134,6 +149,16 @@ class QuestSystem {
    * repeating until nothing changes (one may lead to the other).
    */
   private settle(announce: boolean, changed: boolean): void {
+    const wasBusy = this.busy;
+    this.busy = true;
+    try {
+      this.settleLoop(announce, changed);
+    } finally {
+      this.busy = wasBusy;
+    }
+  }
+
+  private settleLoop(announce: boolean, changed: boolean): void {
     for (let progress = true; progress; ) {
       progress = this.unlockNew(announce);
       for (const { def, step } of this.active()) {

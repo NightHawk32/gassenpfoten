@@ -1,0 +1,16 @@
+[
+  {
+    "id": "christmas-market",
+    "months": [12],
+    "district": "marktplatz",
+    "flag": "christmas-market",
+    "props": [
+      { "type": "stall", "variant": "treats", "x": 9, "y": 10 },
+      { "type": "stall", "variant": "gluehwein", "x": 24, "y": 10 },
+      { "type": "stall", "variant": "lebkuchen", "x": 31, "y": 10 },
+      { "type": "stall", "variant": "maronen", "x": 10, "y": 18 },
+      { "type": "stall", "variant": "crafts", "x": 23, "y": 18 },
+      { "type": "tree", "x": 20, "y": 17 }
+    ]
+  }
+]
