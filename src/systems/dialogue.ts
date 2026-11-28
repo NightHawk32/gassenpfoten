@@ -2,6 +2,7 @@ import { CATS, type CatDef } from '../data/cats';
 import type { NpcDef } from '../data/npcs';
 import { t, type TextKey } from '../i18n/i18n';
 import { gameState, LEVEL } from './gameState';
+import { weatherName } from './season';
 import { atStep } from './quests';
 
 export interface DialogueLine {
@@ -35,7 +36,7 @@ function hint(npc: NpcDef): string | null {
 
   if (level <= LEVEL.SEEN) {
     if (cat.weather?.only) {
-      return t('npc.hint.only', { name: cat.name, place, weather: cat.weather.only.map((w) => t(`weather.${w}` as TextKey)).join(', ') });
+      return t('npc.hint.only', { name: cat.name, place, weather: cat.weather.only.map((w) => t(`weather.${weatherName(w)}` as TextKey)).join(', ') });
     }
     return t('npc.hint.where', {
       name: cat.name,
@@ -53,7 +54,7 @@ function hint(npc: NpcDef): string | null {
 function forecast(): string {
   const { weather } = gameState().weather.forecast;
   if (weather === 'fog') return t('npc.forecast.fog');
-  return t('npc.forecast', { weather: t(`weather.${weather}` as TextKey) });
+  return t('npc.forecast', { weather: t(`weather.${weatherName(weather)}` as TextKey) });
 }
 
 /** Builds what the NPC says right now (and hands out the daily gift). */

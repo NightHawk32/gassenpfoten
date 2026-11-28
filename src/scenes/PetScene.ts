@@ -93,7 +93,10 @@ export class PetScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.finish('cancel'));
     this.input.setDefaultCursor('pointer');
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
+    // The HUD would show through the dimmed world and collide with the name and hint.
+    this.scene.setVisible(false, 'Hud');
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scene.setVisible(true, 'Hud');
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
       this.input.setDefaultCursor('default');
     });

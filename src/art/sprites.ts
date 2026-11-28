@@ -340,6 +340,36 @@ const NPC_LOOKS: Record<string, { patch: Record<number, string>; palette: Palett
     palette: { ...PLAYER_PALETTE, h: '#f0cc66', g: '#16141c', w: '#fff4ee', j: '#7a2e9a', p: '#e0a040', b: '#f4f0e8' },
   },
   // The demo: linen, knitwear and a lot of conviction.
+  // Marlies from the treat stall: red bobble hat, green scarf, burgundy coat, apron.
+  marlies: {
+    patch: {
+      0: '......owwo......',
+      1: '.....orrrro.....',
+      2: '....orrrrrro....',
+      3: '....owwwwwwo....',
+      6: '.....oggggo.....',
+      7: '....ojggjjjo....',
+      9: '...ojjaaaajjo...',
+      10: '...ojjaaaajjo...',
+      11: '...osjaaaajso...',
+      12: '....ojaaaajo....',
+    },
+    palette: { ...PLAYER_PALETTE, h: '#d8c8b0', r: '#c83a3a', w: '#f4f0e8', g: '#2e7a4a', j: '#7a2a3a', a: '#e8d8b0', p: '#3a3a48', b: '#2a2024' },
+  },
+  // Glühwein-Gerd: red cap, big grey beard, dark green apron.
+  gerd: {
+    patch: {
+      1: '.....orrrro.....',
+      2: '....orrrrrro....',
+      5: '....oxxxxxxo....',
+      6: '....oxxxxxxo....',
+      7: '....ojxxxxjo....',
+      9: '...ojjaaaajjo...',
+      10: '...ojjaaaajjo...',
+      11: '...osjaaaajso...',
+    },
+    palette: { ...PLAYER_PALETTE, h: '#8a8a8a', x: '#d0ccc4', r: '#a8282a', j: '#4a3a30', a: '#2e4a3a', p: '#3a3a44', b: '#2a2024' },
+  },
   'vegan-1': {
     patch: { 1: '.....owwwwo.....', 2: '....owwwwwwo....', 6: '.....ohhhho.....' },
     palette: { ...PLAYER_PALETTE, h: '#b8502c', w: '#5a9a4a', j: '#e2d4ae', p: '#5a6a3a', b: '#6a4a30' },

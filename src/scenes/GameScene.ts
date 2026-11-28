@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../config';
+import { STALL_BULBS, STALL_H, TREE_LIGHTS, TREE_W } from '../art/festive';
 import { CAT_FRAME } from '../art/sprites';
 import { catActive, catDef, CATS, catSpots, treatReaction } from '../data/cats';
 import { Cat } from '../entities/Cat';
@@ -13,6 +14,7 @@ import { bus, emitGame, EV, type GameEvent, type InteractPrompt, type PetResult 
 import { gameState, LEVEL } from '../systems/gameState';
 import { quests } from '../systems/quests';
 import { isTouchDevice } from '../systems/viewport';
+import { activeEvents, eventActive, isSnowSeason, weatherName } from '../systems/season';
 import type { Weather } from '../systems/weather';
 import type { District, Exit } from '../world/district';
 import { WeatherFx } from '../world/weatherFx';
@@ -36,6 +38,8 @@ const FADE_MS = 350;
 
 /** The controls hint is shown once per page load, not on every district change. */
 let controlsShown = false;
+/** Calendar events (Christmas market) are announced once per page load. */
+const eventsAnnounced = new Set<string>();
 
 interface Bowl {
   img: Phaser.GameObjects.Image;
@@ -134,7 +138,10 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, this.district.grid, entries[state.entry] ?? entries.start);
 
     this.cats = CATS.filter(
-      (c) => c.district === this.district.def.id && (!c.requiresFlag || state.hasFlag(c.requiresFlag)),
+      (c) =>
+        c.district === this.district.def.id &&
+        (!c.requiresFlag || state.hasFlag(c.requiresFlag)) &&
+        (!c.event || eventActive(c.event)),
     ).map((def) => new Cat(this, def, this.district.grid, this.district.def.exits));
 
     // Cats that belong to the current phase and weather are already there when you arrive.
@@ -165,7 +172,7 @@ export class GameScene extends Phaser.Scene {
       this.followerOf(cat)?.appearAt(this.besideTile(spot));
     }
     this.brainCell = new BrainCell(this, this.cats, (e) => this.onBrainCell(e));
-    this.npcs = NPCS.filter((n) => n.district === this.district.def.id).map((def) => {
+    this.npcs = NPCS.filter((n) => n.district === this.district.def.id && (!n.event || eventActive(n.event))).map((def) => {
       const spotOf = (name: string) => {
         const spot = this.district.def.spots[name]?.[0];
         if (!spot) throw new Error(`NPC "${def.id}": no spot "${name}" in district "${this.district.def.id}"`);
@@ -181,6 +188,8 @@ export class GameScene extends Phaser.Scene {
     this.setupInput();
     this.setupBus();
 
+    // Calendar events set their flag, so quests that need them can start.
+    for (const ev of activeEvents()) if (ev.flag) state.setFlag(ev.flag);
     quests.start();
     emitGame({ type: 'area-entered', area: this.district.def.id });
 
@@ -191,6 +200,11 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(600, () => bus.emit(EV.TOAST, t(isTouchDevice() ? 'toast.controls.touch' : 'toast.controls')));
     } else {
       bus.emit(EV.TOAST, t(`district.${this.district.def.id}` as TextKey));
+    }
+    for (const ev of activeEvents(this.district.def.id)) {
+      if (eventsAnnounced.has(ev.id)) continue;
+      eventsAnnounced.add(ev.id);
+      this.time.delayedCall(1800, () => bus.emit(EV.TOAST, t(`toast.event.${ev.id}` as TextKey)));
     }
     this.cameras.main.fadeIn(FADE_MS, 20, 16, 24);
 
@@ -251,6 +265,9 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
+    if (isSnowSeason()) this.drawSnowCover();
+    this.placeEventProps();
+
     for (const exit of d.def.exits) {
       if (!exit.to) continue;
       const c = { x: exit.x * TILE_SIZE + TILE_SIZE / 2, y: exit.y * TILE_SIZE + TILE_SIZE / 2 };
@@ -274,6 +291,98 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0)
       .setDepth(10000)
       .setAlpha(0);
+  }
+
+  /** Market stalls and the tree of calendar events, with fairy lights that glow at night. */
+  private placeEventProps(): void {
+    const light = (x: number, y: number, color: number) => {
+      const glow = this.add
+        .image(x, y, 'glow')
+        .setTint(color)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(0.16)
+        .setDepth(10001)
+        .setAlpha(0);
+      this.lampGlows.push(glow);
+      // Twinkle: the size pulses, so the lighting pass keeps control of the alpha.
+      this.tweens.add({
+        targets: glow,
+        scale: 0.24,
+        duration: Phaser.Math.Between(500, 1100),
+        delay: Phaser.Math.Between(0, 900),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    };
+    for (const ev of activeEvents(this.district.def.id)) {
+      for (const prop of ev.props) {
+        const bottom = (prop.y + 1) * TILE_SIZE;
+        if (prop.type === 'stall') {
+          const left = prop.x * TILE_SIZE;
+          this.add.image(left, bottom, `stall-${prop.variant ?? 'treats'}`).setOrigin(0, 1).setDepth(bottom);
+          for (const b of STALL_BULBS) light(left + b.x + 0.5, bottom - STALL_H + b.y + 0.5, b.color);
+        } else {
+          const cx = prop.x * TILE_SIZE + TILE_SIZE / 2;
+          const img = this.add.image(cx, bottom, 'xmas-tree').setOrigin(0.5, 1).setDepth(bottom);
+          for (const l of TREE_LIGHTS) light(cx - TREE_W / 2 + l.x + 0.5, bottom - img.height + l.y + 0.5, l.color);
+        }
+      }
+    }
+  }
+
+  /**
+   * Snow on roofs, lawns, hedges and walls, and trampled patches on the
+   * cobbles (December, see src/systems/season.ts). Drawn once on top of the
+   * tiles and below everything that stands on them.
+   */
+  private drawSnowCover(): void {
+    const { map } = this.district.def;
+    const g = this.add.graphics().setDepth(-0.5);
+    const T = TILE_SIZE;
+    const rnd = (x: number, y: number, i: number) => {
+      const n = Math.sin(x * 127.1 + y * 311.7 + i * 74.7) * 43758.5453;
+      return n - Math.floor(n);
+    };
+    const WHITE = 0xf2f6fc;
+    const SHADE = 0xc8d6ea;
+    const ROOFS = 'RcPq';
+    const LAWN = 'gTeX';
+    const GROUND = '.s,mjbLBA';
+    for (let y = 0; y < map.length; y++) {
+      for (let x = 0; x < map[y].length; x++) {
+        const ch = map[y][x];
+        const px = x * T;
+        const py = y * T;
+        if (ROOFS.includes(ch)) {
+          const edge = map[y + 1]?.[x] !== ch;
+          g.fillStyle(WHITE, 1).fillRect(px, py, T, edge ? 10 : T);
+          g.fillStyle(SHADE, 1).fillRect(px + Math.floor(rnd(x, y, 1) * 12), py + Math.floor(rnd(x, y, 2) * 8) + 1, 3, 1);
+          if (edge) {
+            g.fillStyle(SHADE, 1).fillRect(px, py + 10, T, 1);
+            for (const ix of [2, 7, 12]) if (rnd(x, y, ix) < 0.6) g.fillStyle(0xdfeaf6, 1).fillRect(px + ix, py + 11, 1, 1 + Math.floor(rnd(x, y, ix + 1) * 3));
+          }
+        } else if (LAWN.includes(ch)) {
+          g.fillStyle(WHITE, 1).fillRect(px, py, T, ch === 'X' ? 9 : T);
+          for (let i = 0; i < 3; i++) {
+            g.fillStyle(SHADE, 1).fillRect(px + Math.floor(rnd(x, y, i) * 13), py + Math.floor(rnd(x, y, i + 5) * 13), 3, 1);
+          }
+        } else if (GROUND.includes(ch) && ch !== 'A') {
+          // Trampled: a thin dusting with a drift here and there.
+          g.fillStyle(WHITE, 0.16).fillRect(px, py, T, T);
+          const count = rnd(x, y, 9) < 0.45 ? 1 + Math.floor(rnd(x, y, 8) * 2) : 0;
+          for (let i = 0; i < count; i++) {
+            const w = 4 + Math.floor(rnd(x, y, i * 2) * 6);
+            const h = 2 + Math.floor(rnd(x, y, i * 2 + 1) * 2);
+            g.fillStyle(WHITE, 0.6).fillRect(px + Math.floor(rnd(x, y, i + 20) * (T - w)), py + Math.floor(rnd(x, y, i + 30) * (T - h)), w, h);
+          }
+        } else if ('oMNY'.includes(ch) && map[y - 1]?.[x] !== ch) {
+          // Rims and wall tops.
+          g.fillStyle(WHITE, 1).fillRect(px, py, T, 4);
+          g.fillStyle(SHADE, 1).fillRect(px, py + 4, T, 1);
+        }
+      }
+    }
   }
 
   private setupCamera(): void {
@@ -454,7 +563,7 @@ export class GameScene extends Phaser.Scene {
     const before = this.weather;
     this.weather = state.weather.current;
     emitGame({ type: 'weather', weather: this.weather });
-    bus.emit(EV.TOAST, t(`toast.weather.${this.weather}` as TextKey));
+    bus.emit(EV.TOAST, t(`toast.weather.${weatherName(this.weather)}` as TextKey));
     this.updatePresence(before);
   }
 

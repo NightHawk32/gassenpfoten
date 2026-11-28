@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { registerFestive } from '../art/festive';
 import { registerLogo } from '../art/logo';
 import { registerSprites } from '../art/sprites';
 import { registerTiles } from '../art/tiles';
@@ -19,6 +20,7 @@ export class BootScene extends Phaser.Scene {
     registerTiles(this);
     registerSprites(this);
     registerLogo(this);
+    registerFestive(this);
     this.scene.start('Title');
   }
 }

@@ -23,8 +23,9 @@ because existing saves refer to it.
 |---|---|---|
 | Items | `src/data/items.json` | `src/data/items.ts` |
 | Cats | `src/data/cats.json` | `src/data/cats.ts`, `src/entities/Cat.ts` |
-| Districts (areas) | `src/world/districts/*.ts` | `src/world/district.ts`, `districts/index.ts` |
+| Districts (areas) | `src/world/districts/*.json` | `src/world/district.ts`, `districts/index.ts` |
 | Quests (missions, story arcs) | `src/data/quests.json` | `src/systems/quests.ts` |
+| Calendar events (Christmas market) | `src/data/events.json` | `src/systems/season.ts` |
 | Game events | `src/systems/events.ts` (`GameEvent`) | emitted by `GameScene`, `GameState` |
 
 ## Add an item
@@ -153,17 +154,48 @@ until it is over. Emits `demo-seen {area}` once per demo while the player is
 there, and `demo-ended {area}`. To let a demo march through another district,
 add demonstrators with that `district`.
 
+### Calendar events and snow 🎄
+
+Some things follow the real date, not the in-game clock
+(`src/systems/season.ts`). In December:
+
+- **Snow.** Roofs, lawns and wall tops are white, the cobbles get a dusting,
+  rain falls as snow (shown as `weather.snow`, toast `toast.weather.snow`) and
+  grey skies bring a few flakes. Cats treat snow like rain. The title screen
+  snows too.
+- **Events** from `src/data/events.json` are on in their `months`:
+
+  ```json
+  { "id": "christmas-market", "months": [12], "district": "marktplatz",
+    "flag": "christmas-market",
+    "props": [{ "type": "stall", "variant": "treats", "x": 9, "y": 10 },
+              { "type": "tree", "x": 20, "y": 17 }] }
+  ```
+
+  A `stall` blocks its tile and the one to the right, a `tree` one tile; the
+  game refuses props on spots, entries, exits or solid ground (checked in
+  every month). Stall colours are `STALL_VARIANTS` in `src/art/festive.ts`.
+  While the event is on, its `flag` is set (quests can `requiresFlag` it) and
+  cats and NPCs with `"event": "<id>"` show up. The first visit to the
+  district shows `toast.event.<id>`.
+
+Preview any month by adding `?month=12` (1–12) to the URL.
+
 ## Add a district (area)
 
-1. Copy `src/world/districts/marktplatz.ts` to e.g. `neckarfront.ts` and draw
-   the map with the legend in `src/world/district.ts`. All rows must have the
-   same length. The build checks that every spot, exit and entry is walkable.
-2. Register it in `src/world/districts/index.ts`.
+1. Copy `src/world/districts/marktplatz.json` to e.g. `neckarinsel.json`, set
+   `id` and draw the map rows with the legend in `src/world/district.ts`. All
+   rows must have the same length. `description` and an exit's `note` are
+   remarks for map editors; the game ignores them. When a district is first
+   loaded, the game checks that every spot, exit and entry is walkable.
+2. Import it in `src/world/districts/index.ts` and add it to `DEFS`. `tsc`
+   then checks the file against `DistrictDef`, and the game checks at
+   startup that every exit leads to a district and entry that exist.
 3. Add `"spot.<name>"` for each spot to both language files.
 4. Add `"district.<id>"` (the place name shown in the HUD and journal) to both
    language files.
 5. Connect districts through exits:
-   `{ x: 6, y: 28, to: { district: 'neckarfront', entry: 'from-marktplatz' } }`.
+   `{ "x": 6, "y": 28, "to": { "district": "neckarfront", "entry": "from-marktplatz" } }`.
    Walking onto such an exit fades to the other district and places the
    player at the named entry; add the matching entry (and an exit back) on the
    other side. Put entries a tile or two inside, not on the exit itself.

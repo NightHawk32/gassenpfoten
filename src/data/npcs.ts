@@ -27,6 +27,8 @@ export interface NpcDef {
   shop?: { item: string; price: number }[];
   /** Only shows up during a demo (src/systems/demo.ts), not by time of day. */
   demo?: boolean;
+  /** Only there while this calendar event is on (src/data/events.json), e.g. a market stall. */
+  event?: string;
   /** Something carried above the head (texture key), e.g. a placard. */
   prop?: string;
   /** Which cats the NPC gives hints about: any, or only night and fog cats. */

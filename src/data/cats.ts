@@ -43,6 +43,8 @@ export interface CatDef {
   size?: number;
   /** Optional: only appears once this story flag is set (e.g. by a quest). */
   requiresFlag?: string;
+  /** Optional: only appears while this calendar event is on (src/data/events.json). */
+  event?: string;
   /**
    * Inseparable: this cat comes, goes, moves and flees together with the cat
    * with this id (same district). Its own phases and weather are only shown
